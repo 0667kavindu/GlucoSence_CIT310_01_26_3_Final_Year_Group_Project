@@ -1,0 +1,90 @@
+/*
+   GlucoSense — Navbar.css
+*/
+
+.navbar {
+  position:   fixed;
+  top:        0;
+  left:       0;
+  right:      0;
+  z-index:    1000;
+  background: rgba(10, 22, 40, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(78, 155, 255, 0.2);
+}
+
+.navbar-inner {
+  max-width:   1200px;
+  margin:      0 auto;
+  padding:     0 20px;
+  height:      60px;
+  display:     flex;
+  align-items: center;
+  gap:         16px;
+}
+
+.navbar-logo {
+  font-size:   1.4rem;
+  font-weight: 800;
+  text-decoration: none;
+  margin-right: auto;
+}
+.logo-gluco { color: #FFFFFF; }
+.logo-sense { color: #5DF8D8; }
+
+.navbar-links {
+  display:     flex;
+  align-items: center;
+  gap:         6px;
+  flex-wrap:   wrap;
+}
+
+.navbar-links a {
+  color:       #A8B8D0;
+  font-size:   13px;
+  font-weight: 500;
+  padding:     6px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition:  all 0.15s;
+}
+.navbar-links a:hover,
+.navbar-links a.active {
+  color:       #FFFFFF;
+  background:  rgba(78, 155, 255, 0.12);
+}
+
+/* Hamburger — mobile only */
+.hamburger {
+  display:    none;
+  flex-direction: column;
+  gap:        5px;
+  background: none;
+  border:     none;
+  cursor:     pointer;
+  padding:    4px;
+}
+.hamburger span {
+  display: block;
+  width:  24px; height: 2px;
+  background: #A8B8D0;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+
+@media (max-width: 900px) {
+  .hamburger { display: flex; }
+
+  .navbar-links {
+    display:    none;
+    position:   absolute;
+    top:        60px; left: 0; right: 0;
+    background: rgba(10, 22, 40, 0.98);
+    padding:    16px 20px;
+    flex-direction: column;
+    align-items:    stretch;
+    border-bottom: 1px solid rgba(78, 155, 255, 0.2);
+  }
+  .navbar-links.open { display: flex; }
+  .navbar-links a    { padding: 10px 12px; }
+}

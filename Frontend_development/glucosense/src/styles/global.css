@@ -1,0 +1,202 @@
+/* =============================================================================
+   GlucoSense — global.css
+   Member 2: Global styles, CSS variables (design tokens), resets
+   ============================================================================= */
+
+/* ── Google Fonts ────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+/* ── CSS Variables (design tokens) ──────────────────────────────────────── */
+:root {
+  /* Colours */
+  --navy:       #0D1B2A;
+  --navy2:      #1A3050;
+  --navy3:      #1E3860;
+  --blue:       #4E9BFF;
+  --blue-dark:  #2E75B6;
+  --green:      #5DF8D8;
+  --green-dark: #1A7A4A;
+  --teal:       #22D4C8;
+  --orange:     #FF8C42;
+  --red:        #FF5A5A;
+  --yellow:     #FFD60A;
+  --purple:     #C084FC;
+  --white:      #FFFFFF;
+  --off-white:  #F0F4FF;
+  --muted:      #A8B8D0;
+  --dim:        #607090;
+
+  /* Typography */
+  --font:       'Poppins', sans-serif;
+
+  /* Spacing */
+  --radius:     12px;
+  --radius-sm:  8px;
+  --radius-lg:  16px;
+
+  /* Shadows */
+  --shadow:     0 4px 24px rgba(0, 0, 0, 0.3);
+  --shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.2);
+
+  /* Transitions */
+  --transition: all 0.2s ease;
+}
+
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background:  var(--navy);
+  color:       var(--off-white);
+  line-height: 1.6;
+  min-height:  100vh;
+}
+
+/* ── Typography ──────────────────────────────────────────────────────────── */
+h1 { font-size: 2.2rem; font-weight: 800; }
+h2 { font-size: 1.6rem; font-weight: 700; }
+h3 { font-size: 1.2rem; font-weight: 600; }
+p  { color: var(--muted); line-height: 1.7; }
+a  { color: var(--blue);  text-decoration: none; }
+a:hover { color: var(--green); }
+
+/* ── Page wrapper ────────────────────────────────────────────────────────── */
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 80px 20px 40px; /* 80px top = below navbar */
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.card {
+  background:    var(--navy2);
+  border:        1px solid rgba(78, 155, 255, 0.15);
+  border-radius: var(--radius);
+  padding:       24px;
+  box-shadow:    var(--shadow-sm);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn {
+  display:        inline-flex;
+  align-items:    center;
+  justify-content:center;
+  gap:            8px;
+  padding:        10px 22px;
+  border-radius:  var(--radius-sm);
+  font-family:    var(--font);
+  font-size:      14px;
+  font-weight:    600;
+  cursor:         pointer;
+  border:         none;
+  transition:     var(--transition);
+}
+.btn-primary {
+  background: var(--blue);
+  color:      var(--navy);
+}
+.btn-primary:hover { background: #6aadff; transform: translateY(-1px); }
+
+.btn-success {
+  background: var(--green);
+  color:      var(--navy);
+}
+.btn-success:hover { background: #5DF8D8; transform: translateY(-1px); }
+
+.btn-outline {
+  background: transparent;
+  color:      var(--blue);
+  border:     1.5px solid var(--blue);
+}
+.btn-outline:hover { background: rgba(78,155,255,0.1); }
+
+.btn-danger {
+  background: var(--red);
+  color:      white;
+}
+
+/* ── Form inputs ─────────────────────────────────────────────────────────── */
+.input {
+  width:         100%;
+  background:    rgba(255,255,255,0.05);
+  border:        1.5px solid var(--navy3);
+  border-radius: var(--radius-sm);
+  padding:       10px 14px;
+  color:         var(--off-white);
+  font-family:   var(--font);
+  font-size:     14px;
+  transition:    var(--transition);
+  outline:       none;
+}
+.input:focus       { border-color: var(--blue); background: rgba(78,155,255,0.05); }
+.input.valid       { border-color: var(--green); }
+.input.invalid     { border-color: var(--red); }
+.input::placeholder { color: var(--dim); }
+select.input option { background: var(--navy2); }
+
+.input-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.input-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.input-hint  { font-size: 11px; color: var(--dim); }
+.input-error { font-size: 11px; color: var(--red); }
+
+/* ── Risk colour classes ─────────────────────────────────────────────────── */
+.risk-low      { color: var(--green);  }
+.risk-moderate { color: var(--yellow); }
+.risk-high     { color: var(--orange); }
+.risk-veryhigh { color: var(--red);    }
+
+/* ── Section heading ─────────────────────────────────────────────────────── */
+.section-title {
+  font-size:     1.4rem;
+  font-weight:   700;
+  margin-bottom: 8px;
+  display:       flex;
+  align-items:   center;
+  gap:           10px;
+}
+.section-title::after {
+  content:   '';
+  flex:      1;
+  height:    2px;
+  background:linear-gradient(to right, var(--blue), transparent);
+}
+
+/* ── Loading spinner ─────────────────────────────────────────────────────── */
+.spinner {
+  width:  36px; height: 36px;
+  border: 3px solid rgba(78,155,255,0.2);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 20px auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Alert boxes ─────────────────────────────────────────────────────────── */
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.alert-error   { background:rgba(255,90,90,0.1);  border:1px solid rgba(255,90,90,0.3);  color:#ffaaaa; }
+.alert-success { background:rgba(46,224,128,0.1); border:1px solid rgba(46,224,128,0.3); color:#80f5c0; }
+.alert-info    { background:rgba(78,155,255,0.1); border:1px solid rgba(78,155,255,0.3); color:#aad4ff; }
+
+/* ── Grid helpers ────────────────────────────────────────────────────────── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+@media (max-width: 768px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .page { padding: 70px 16px 30px; }
+  h1 { font-size: 1.7rem; }
+}
