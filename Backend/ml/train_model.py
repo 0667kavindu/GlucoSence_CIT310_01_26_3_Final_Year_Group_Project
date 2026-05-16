@@ -29,6 +29,7 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.model_selection import cross_val_score
 
 warnings.filterwarnings('ignore')
 
@@ -52,8 +53,8 @@ BLOOD_AND_MEDICALLY_MEASURABLE_FEATURES = [
     'glucose_postprandial',
     'hba1c',
     'insulin_level',
-    'systolic_bp',
-    'diastolic_bp',
+    # 'systolic_bp',
+    # 'diastolic_bp',
     'cholesterol_total',
     'hdl_cholesterol',
     'ldl_cholesterol',
@@ -63,7 +64,7 @@ BLOOD_AND_MEDICALLY_MEASURABLE_FEATURES = [
 # Lifestyle + non-lab measurable features
 LIFESTYLE_FEATURES = [
     'age',
-    'gender',
+
     'bmi',
     'waist_to_hip_ratio',
     'heart_rate',
@@ -72,6 +73,9 @@ LIFESTYLE_FEATURES = [
     'alcohol_consumption_per_week',
     'diet_score',
     'sleep_hours_per_day',
+    'screen_time_hours_per_day',
+     'systolic_bp',
+    'diastolic_bp',
 ]
 
 # Medical history
@@ -103,18 +107,44 @@ def validate_features(data, features, model_name='MODEL'):
         )
     print(f"✓ All required features found for {model_name}")
 
-# Encode categorical features using LabelEncoder and store encoders for future use
+
+# Encode categorical features
+# Gender uses One-Hot Encoding
+# Other categorical columns use LabelEncoder
+
 def encode_categorical_features(X):
-  
+
     label_encoders = {}
 
+    # One-hot encode gender
+    if 'gender' in X.columns:
+        gender_dummies = pd.get_dummies(
+            X['gender'],
+            prefix='gender',
+            drop_first=True
+        )
+
+        X = pd.concat(
+            [X.drop('gender', axis=1), gender_dummies],
+            axis=1
+        )
+
+        print('✓ One-hot encoded: gender')
+
+    # Label encode other categorical columns
     categorical_cols = X.select_dtypes(include=['object']).columns
 
     for col in categorical_cols:
+
         le = LabelEncoder()
-        X[col] = le.fit_transform(X[col].astype(str))
+
+        X[col] = le.fit_transform(
+            X[col].astype(str)
+        )
+
         label_encoders[col] = le
-        print(f"✓ Encoded categorical column: {col}")
+
+        print(f'✓ Label encoded: {col}')
 
     return X, label_encoders
 
@@ -259,7 +289,6 @@ def save_model_bundle(path, bundle):
     print(f'✓ Saved model: {path}')
 
 
-
 # Start of the training pipeline
 print_section('GLUCOSENSE — DUAL MODEL TRAINING PIPELINE')
 
@@ -344,9 +373,21 @@ stage_encoder.fit(data[STAGE_TARGET])
 # Encode categorical columns
 X, label_encoders = encode_categorical_features(X)
 
+# Add one-hot encoded gender columns dynamically
+gender_columns = [
+    col for col in X.columns
+    if col.startswith('gender_')
+]
+
+FULL_MODEL_FEATURES = (
+    FULL_MODEL_FEATURES + gender_columns
+)
+
+SIMPLIFIED_MODEL_FEATURES = (
+    SIMPLIFIED_MODEL_FEATURES + gender_columns
+)
+
 print(f'\n✓ Total feature columns: {len(X.columns)}')
-
-
 
 # STEP 4 — Full model data
 print_section('STEP 4 — PREPARING FULL MODEL DATA')
@@ -411,7 +452,7 @@ results_full['Logistic Regression'] = {
     'model': lr_full,
     'pred': lr_full.predict(X_test_full_scaled),
     'proba': lr_full.predict_proba(X_test_full_scaled)[:, 1],
-    'scaled': True,
+    'scaled': False,
 }
 
 # Random Forest
@@ -430,6 +471,14 @@ rf_full = RandomForestClassifier(
 )
 
 rf_full.fit(X_train_full, y_train_full)
+cv_scores = cross_val_score(
+    rf_full,
+    X_full,
+    y,
+    cv=5,
+    scoring='f1'
+)
+
 
 results_full['Random Forest'] = {
     'model': rf_full,
@@ -442,19 +491,27 @@ results_full['Random Forest'] = {
 print('▶ Training XGBoost....')
 
 xgb_full = xgb.XGBClassifier(
-    n_estimators=200,
-    max_depth=6,
+    n_estimators=120,
+    max_depth=4,
     learning_rate=0.05,
-    subsample=0.8,
-    min_child_weight=1,
+    subsample=0.7,
+    colsample_bytree=0.7,
+    min_child_weight=5,
     random_state=RANDOM_STATE,
-    scale_pos_weight=3,
-    gamma=0.1,
+    eval_metric='logloss',
+    gamma=0.3,
+    reg_alpha=1,
+    reg_lambda=2,
     tree_method='hist',
     n_jobs=-1,
 )
 
-xgb_full.fit(X_train_full, y_train_full)
+
+xgb_full.fit(X_train_full,
+               y_train_full,
+    eval_set=[(X_test_full, y_test_full)],
+    verbose=False,
+)
 
 results_full['XGBoost'] = {
     'model': xgb_full,
@@ -490,13 +547,15 @@ results_simp['Logistic Regression'] = {
 print('▶ Training Random Forest....')
 
 rf_simp = RandomForestClassifier(
-    n_estimators=300,
-    random_state=RANDOM_STATE,
-    max_depth=8,
-    min_samples_split=5,
+    n_estimators=250,
+    max_depth=5,
+    min_samples_split=10,
+    min_samples_leaf=4,
+    max_features='sqrt',
     class_weight='balanced',
-    min_samples_leaf=2,
+    bootstrap=True,
     n_jobs=-1,
+    random_state=RANDOM_STATE,
 )
 
 rf_simp.fit(X_train_simp, y_train_simp)
@@ -525,6 +584,8 @@ xgb_simp = xgb.XGBClassifier(
 )
 
 xgb_simp.fit(X_train_simp, y_train_simp)
+
+
 
 results_simp['XGBoost'] = {
     'model': xgb_simp,
