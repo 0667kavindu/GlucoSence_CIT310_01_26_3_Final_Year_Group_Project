@@ -28,6 +28,8 @@
   font-weight: 800;
   text-decoration: none;
   margin-right: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .logo-gluco { color: #FFFFFF; }
 .logo-sense { color: #5DF8D8; }
@@ -47,6 +49,7 @@
   border-radius: 6px;
   text-decoration: none;
   transition:  all 0.15s;
+  white-space: nowrap;
 }
 .navbar-links a:hover,
 .navbar-links a.active {
@@ -63,6 +66,7 @@
   border:     none;
   cursor:     pointer;
   padding:    4px;
+  flex-shrink: 0;
 }
 .hamburger span {
   display: block;
@@ -72,19 +76,42 @@
   transition: all 0.2s;
 }
 
+/* Tablet: shrink padding/gaps before the hard breakpoint kicks in */
+@media (max-width: 1024px) {
+  .navbar-inner { padding: 0 16px; gap: 12px; }
+  .navbar-links { gap: 2px; }
+  .navbar-links a { font-size: 12.5px; padding: 6px 8px; }
+}
+
 @media (max-width: 900px) {
+  .navbar-inner { height: 56px; }
+
   .hamburger { display: flex; }
 
   .navbar-links {
     display:    none;
     position:   absolute;
-    top:        60px; left: 0; right: 0;
+    top:        56px; left: 0; right: 0;
     background: rgba(10, 22, 40, 0.98);
     padding:    16px 20px;
     flex-direction: column;
     align-items:    stretch;
     border-bottom: 1px solid rgba(78, 155, 255, 0.2);
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
   }
   .navbar-links.open { display: flex; }
-  .navbar-links a    { padding: 10px 12px; }
+  .navbar-links a    { padding: 10px 12px; font-size: 14px; }
 }
+
+/* Small phones */
+@media (max-width: 480px) {
+  .navbar-inner { padding: 0 12px; gap: 8px; }
+  .navbar-logo  { font-size: 1.15rem; }
+}
+
+/* Very small / older devices */
+@media (max-width: 360px) {
+  .navbar-logo { font-size: 1rem; }
+}
+
