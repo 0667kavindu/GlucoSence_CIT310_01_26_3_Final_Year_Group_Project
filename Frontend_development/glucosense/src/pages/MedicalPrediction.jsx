@@ -82,6 +82,111 @@ const STEP_REQUIRED = {
       'hdl_cholesterol', 'ldl_cholesterol', 'triglycerides'],
 }
 
+// =========================================================
+// IMPORTANT FIX: NumericField and SelectField are now defined
+// OUTSIDE the MedicalPrediction component (module-level), not
+// inside its function body.
+//
+// Why this matters: previously these were declared with
+// `const NumericField = (...) => {...}` INSIDE MedicalPrediction().
+// Every time MedicalPrediction re-rendered (i.e. on every keystroke,
+// since typing updates `formData` state), JavaScript created a brand
+// new function object for NumericField. React treats a new function
+// reference as a brand new component TYPE, not the same component
+// re-rendering — so it unmounted the old <input> DOM node and mounted
+// a fresh one on every keystroke. That's what caused the input to
+// blink and lose focus after each digit.
+//
+// By moving them out here, the component identity stays stable across
+// re-renders, so React just updates props on the same DOM node and
+// focus is preserved while typing.
+// =========================================================
+
+function NumericField({ name, label, hint, fieldStep = 'any', placeholder = '', formData, touched, onChange, onBlur }) {
+  const status = touched[name] ? getFieldStatus(name, formData[name]) : ''
+  const errMsg = touched[name] ? getFieldError(name, formData[name]) : null
+  const lim = LIMITS[name]
+
+  return (
+    <div className="input-group">
+      <label className="input-label">{label}</label>
+      {hint && <p style={{ fontSize: '12px', color: '#607090', margin: '2px 0 6px' }}>{hint}</p>}
+      <input
+        type="number"
+        name={name}
+        value={formData[name]}
+        onChange={onChange}
+        onBlur={onBlur}
+        className="input"
+        step={fieldStep}
+        placeholder={placeholder || (lim ? `${lim.min} – ${lim.max}` : '')}
+        style={{ ...(STATUS_STYLE[status] || {}), transition: 'border-color 0.2s, background 0.2s' }}
+      />
+      {/* Inline range badge */}
+      {lim && (
+        <span style={{ fontSize: '11px', color: '#607090', marginTop: '3px' }}>
+          {lim.unit ? `Unit: ${lim.unit} · ` : ''}Range: {lim.min} – {lim.max}
+          {lim.normal ? ` · Normal: ${lim.normal[0]}–${lim.normal[1]}` : ''}
+        </span>
+      )}
+      {/* Inline error message */}
+      {errMsg && (
+        <span style={{ fontSize: '12px', color: '#FF5A5A', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          ⚠ {errMsg}
+        </span>
+      )}
+      {/* In-range confirmation */}
+      {status === 'valid' && !errMsg && (
+        <span style={{ fontSize: '11px', color: '#2EE080', marginTop: '3px' }}>✓ Looks good</span>
+      )}
+      {status === 'warn' && (
+        <span style={{ fontSize: '11px', color: '#FFD60A', marginTop: '3px' }}>⚠ Outside normal range — check your value</span>
+      )}
+    </div>
+  )
+}
+
+function SelectField({ name, label, hint, options, formData, onChange }) {
+  const hasValue = formData[name] !== ''
+  return (
+    <div className="input-group">
+      <label className="input-label">{label}</label>
+      {hint && <p style={{ fontSize: '12px', color: '#607090', margin: '2px 0 6px' }}>{hint}</p>}
+      <select
+        name={name}
+        value={formData[name]}
+        onChange={onChange}
+        className="input"
+        style={hasValue ? STATUS_STYLE.valid : {}}
+      >
+        <option value="">Select…</option>
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  )
+}
+
+function CheckField({ name, label, formData, onChange }) {
+  return (
+    <label style={{
+      display: 'flex', alignItems: 'center', gap: '12px',
+      padding: '14px 16px', borderRadius: '10px', cursor: 'pointer',
+      background: formData[name] ? 'rgba(46,224,128,0.08)' : 'rgba(255,255,255,0.03)',
+      border: `1px solid ${formData[name] ? '#2EE080' : 'rgba(78,155,255,0.2)'}`,
+      transition: 'all 0.2s',
+    }}>
+      <input
+        type="checkbox"
+        name={name}
+        checked={formData[name] === 1}
+        onChange={onChange}
+        style={{ width: '18px', height: '18px', accentColor: '#2EE080', cursor: 'pointer' }}
+      />
+      <span style={{ fontSize: '14px', color: formData[name] ? '#2EE080' : '#A8B8D0' }}>{label}</span>
+    </label>
+  )
+}
+
 // COMPONENT
 export default function MedicalPrediction() {
   const navigate = useNavigate()
@@ -237,90 +342,6 @@ export default function MedicalPrediction() {
   //  Helpers 
   const riskColor = (s) => s < 20 ? '#2EE080' : s < 40 ? '#FFD60A' : s < 70 ? '#FF8C42' : '#FF5A5A'
 
-  //  Sub-components 
-  const NumericField = ({ name, label, hint, step: fieldStep = 'any', placeholder = '' }) => {
-    const status = touched[name] ? getFieldStatus(name, formData[name]) : ''
-    const errMsg = touched[name] ? getFieldError(name, formData[name]) : null
-    const lim = LIMITS[name]
-
-    return (
-      <div className="input-group">
-        <label className="input-label">{label}</label>
-        {hint && <p style={{ fontSize: '12px', color: '#607090', margin: '2px 0 6px' }}>{hint}</p>}
-        <input
-          type="number"
-          name={name}
-          value={formData[name]}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          className="input"
-          step={fieldStep}
-          placeholder={placeholder || (lim ? `${lim.min} – ${lim.max}` : '')}
-          style={{ ...(STATUS_STYLE[status] || {}), transition: 'border-color 0.2s, background 0.2s' }}
-        />
-        {/* Inline range badge */}
-        {lim && (
-          <span style={{ fontSize: '11px', color: '#607090', marginTop: '3px' }}>
-            {lim.unit ? `Unit: ${lim.unit} · ` : ''}Range: {lim.min} – {lim.max}
-            {lim.normal ? ` · Normal: ${lim.normal[0]}–${lim.normal[1]}` : ''}
-          </span>
-        )}
-        {/* Inline error message */}
-        {errMsg && (
-          <span style={{ fontSize: '12px', color: '#FF5A5A', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            ⚠ {errMsg}
-          </span>
-        )}
-        {/* In-range confirmation */}
-        {status === 'valid' && !errMsg && (
-          <span style={{ fontSize: '11px', color: '#2EE080', marginTop: '3px' }}>✓ Looks good</span>
-        )}
-        {status === 'warn' && (
-          <span style={{ fontSize: '11px', color: '#FFD60A', marginTop: '3px' }}>⚠ Outside normal range — check your value</span>
-        )}
-      </div>
-    )
-  }
-
-  const SelectField = ({ name, label, hint, options }) => {
-    const hasValue = formData[name] !== ''
-    return (
-      <div className="input-group">
-        <label className="input-label">{label}</label>
-        {hint && <p style={{ fontSize: '12px', color: '#607090', margin: '2px 0 6px' }}>{hint}</p>}
-        <select
-          name={name}
-          value={formData[name]}
-          onChange={handleChange}
-          className="input"
-          style={hasValue ? STATUS_STYLE.valid : {}}
-        >
-          <option value="">Select…</option>
-          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      </div>
-    )
-  }
-
-  const CheckField = ({ name, label }) => (
-    <label style={{
-      display: 'flex', alignItems: 'center', gap: '12px',
-      padding: '14px 16px', borderRadius: '10px', cursor: 'pointer',
-      background: formData[name] ? 'rgba(46,224,128,0.08)' : 'rgba(255,255,255,0.03)',
-      border: `1px solid ${formData[name] ? '#2EE080' : 'rgba(78,155,255,0.2)'}`,
-      transition: 'all 0.2s',
-    }}>
-      <input
-        type="checkbox"
-        name={name}
-        checked={formData[name] === 1}
-        onChange={handleChange}
-        style={{ width: '18px', height: '18px', accentColor: '#2EE080', cursor: 'pointer' }}
-      />
-      <span style={{ fontSize: '14px', color: formData[name] ? '#2EE080' : '#A8B8D0' }}>{label}</span>
-    </label>
-  )
-
   //  Loading / not-authed 
   if (!token) return <div className="page"><div className="spinner" /></div>
 
@@ -421,16 +442,20 @@ export default function MedicalPrediction() {
               <h3 style={{ marginBottom: '20px' }}>📋 Basic Information</h3>
               <div className="grid-2">
                 <NumericField name="age" label="Age *"
-                  hint="Your current age. Must be 18 or older." placeholder="e.g. 35" />
+                  hint="Your current age. Must be 18 or older." placeholder="e.g. 35"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
                 <SelectField name="gender" label="Gender *"
                   hint="Your biological gender."
-                  options={[{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }, { value: 'Other', label: 'Other' }]} />
+                  options={[{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }, { value: 'Other', label: 'Other' }]}
+                  formData={formData} onChange={handleChange} />
                 <NumericField name="bmi" label="BMI *"
                   hint="Body Mass Index. Use the BMI Calculator on the Home page if unsure."
-                  fieldStep="0.1" placeholder="e.g. 23.5" />
+                  fieldStep="0.1" placeholder="e.g. 23.5"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
                 <NumericField name="waist_to_hip_ratio" label="Waist-to-Hip Ratio *"
                   hint="Waist circumference ÷ hip circumference."
-                  fieldStep="0.01" placeholder="e.g. 0.85" />
+                  fieldStep="0.01" placeholder="e.g. 0.85"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
               </div>
             </>
           )}
@@ -441,19 +466,25 @@ export default function MedicalPrediction() {
               <h3 style={{ marginBottom: '20px' }}>🏃 Lifestyle Factors</h3>
               <div className="grid-2">
                 <NumericField name="physical_activity_minutes_per_week" label="Exercise (mins/week) *"
-                  hint="Total weekly exercise time. WHO recommends 150+ minutes." placeholder="e.g. 150" />
+                  hint="Total weekly exercise time. WHO recommends 150+ minutes." placeholder="e.g. 150"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
                 <SelectField name="smoking_status" label="Smoking Status *"
                   hint="Your current smoking condition."
-                  options={[{ value: 'Never', label: 'Never Smoked' }, { value: 'Former', label: 'Former Smoker' }, { value: 'Current', label: 'Current Smoker' }]} />
+                  options={[{ value: 'Never', label: 'Never Smoked' }, { value: 'Former', label: 'Former Smoker' }, { value: 'Current', label: 'Current Smoker' }]}
+                  formData={formData} onChange={handleChange} />
                 <NumericField name="alcohol_consumption_per_week" label="Alcohol (units/week) *"
-                  hint="Enter 0 if you don't drink." placeholder="e.g. 2" />
+                  hint="Enter 0 if you don't drink." placeholder="e.g. 2"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
                 <NumericField name="heart_rate" label="Resting Heart Rate *"
-                  hint="Your resting heart rate in beats per minute." placeholder="e.g. 72" />
+                  hint="Your resting heart rate in beats per minute." placeholder="e.g. 72"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
                 <NumericField name="diet_score" label="Diet Score (1–10) *"
-                  hint="1 = very unhealthy diet, 10 = excellent diet." placeholder="e.g. 7" />
+                  hint="1 = very unhealthy diet, 10 = excellent diet." placeholder="e.g. 7"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
                 <NumericField name="sleep_hours_per_day" label="Sleep (hours/day) *"
                   hint="Average daily sleep. Normal range is 7–9 hours."
-                  fieldStep="0.5" placeholder="e.g. 7.5" />
+                  fieldStep="0.5" placeholder="e.g. 7.5"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
               </div>
             </>
           )}
@@ -466,9 +497,9 @@ export default function MedicalPrediction() {
                 Tick all conditions that apply to you or your immediate family. These significantly affect your risk score.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <CheckField name="family_history_diabetes"  label="Family history of diabetes (parent or sibling)" />
-                <CheckField name="hypertension_history"     label="Personal history of high blood pressure (hypertension)" />
-                <CheckField name="cardiovascular_history"   label="Personal history of cardiovascular disease" />
+                <CheckField name="family_history_diabetes"  label="Family history of diabetes (parent or sibling)" formData={formData} onChange={handleChange} />
+                <CheckField name="hypertension_history"     label="Personal history of high blood pressure (hypertension)" formData={formData} onChange={handleChange} />
+                <CheckField name="cardiovascular_history"   label="Personal history of cardiovascular disease" formData={formData} onChange={handleChange} />
               </div>
             </>
           )}
@@ -482,14 +513,18 @@ export default function MedicalPrediction() {
               </p>
               <div className="grid-2">
                 <NumericField name="glucose_fasting" label="Fasting Glucose *"
-                  hint="Blood sugar after 8+ hours fasting. Normal: 70–100 mg/dL." placeholder="e.g. 95" />
+                  hint="Blood sugar after 8+ hours fasting. Normal: 70–100 mg/dL." placeholder="e.g. 95"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
                 <NumericField name="glucose_postprandial" label="Postprandial Glucose *"
-                  hint="Blood sugar 2 hours after a meal. Normal: &lt;140 mg/dL." placeholder="e.g. 120" />
+                  hint="Blood sugar 2 hours after a meal. Normal: &lt;140 mg/dL." placeholder="e.g. 120"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
                 <NumericField name="hba1c" label="HbA1c *"
                   hint="Average blood sugar over 3 months. Normal: &lt;5.7%."
-                  fieldStep="0.1" placeholder="e.g. 5.4" />
+                  fieldStep="0.1" placeholder="e.g. 5.4"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
                 <NumericField name="insulin_level" label="Insulin Level *"
-                  hint="Fasting insulin level. Normal: 2–25 μU/mL." placeholder="e.g. 12" />
+                  hint="Fasting insulin level. Normal: 2–25 μU/mL." placeholder="e.g. 12"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
               </div>
             </>
           )}
@@ -502,12 +537,18 @@ export default function MedicalPrediction() {
                 Enter your most recent blood pressure reading and lipid panel results.
               </p>
               <div className="grid-2">
-                <NumericField name="systolic_bp"       label="Systolic BP *"       hint="Top number in your BP reading. Normal: 90–120 mmHg."  placeholder="e.g. 115" />
-                <NumericField name="diastolic_bp"      label="Diastolic BP *"      hint="Bottom number in your BP reading. Normal: 60–80 mmHg." placeholder="e.g. 75" />
-                <NumericField name="cholesterol_total" label="Total Cholesterol *" hint="Overall cholesterol level. Normal: &lt;200 mg/dL."      placeholder="e.g. 180" />
-                <NumericField name="hdl_cholesterol"   label="HDL Cholesterol *"   hint="Good cholesterol. Higher is better. Normal: &gt;40 mg/dL." placeholder="e.g. 55" />
-                <NumericField name="ldl_cholesterol"   label="LDL Cholesterol *"   hint="Bad cholesterol. Normal: &lt;100 mg/dL."                placeholder="e.g. 90" />
-                <NumericField name="triglycerides"     label="Triglycerides *"     hint="Blood fat level. Normal: &lt;150 mg/dL."                placeholder="e.g. 120" />
+                <NumericField name="systolic_bp"       label="Systolic BP *"       hint="Top number in your BP reading. Normal: 90–120 mmHg."  placeholder="e.g. 115"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
+                <NumericField name="diastolic_bp"      label="Diastolic BP *"      hint="Bottom number in your BP reading. Normal: 60–80 mmHg." placeholder="e.g. 75"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
+                <NumericField name="cholesterol_total" label="Total Cholesterol *" hint="Overall cholesterol level. Normal: &lt;200 mg/dL."      placeholder="e.g. 180"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
+                <NumericField name="hdl_cholesterol"   label="HDL Cholesterol *"   hint="Good cholesterol. Higher is better. Normal: &gt;40 mg/dL." placeholder="e.g. 55"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
+                <NumericField name="ldl_cholesterol"   label="LDL Cholesterol *"   hint="Bad cholesterol. Normal: &lt;100 mg/dL."                placeholder="e.g. 90"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
+                <NumericField name="triglycerides"     label="Triglycerides *"     hint="Blood fat level. Normal: &lt;150 mg/dL."                placeholder="e.g. 120"
+                  formData={formData} touched={touched} onChange={handleChange} onBlur={handleBlur} />
               </div>
             </>
           )}
