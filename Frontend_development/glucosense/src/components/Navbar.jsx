@@ -5,12 +5,13 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import './Navbar.css'
+import GoogleTranslate from './GoogleTranslate';
 
 export default function Navbar() {
-  const [user, setUser]           = useState(null)
-  const [menuOpen, setMenuOpen]   = useState(false)
-  const navigate                  = useNavigate()
-  const location                  = useLocation()
+  const [user, setUser] = useState(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
 
   // Check if user is logged in on every render
   useEffect(() => {
@@ -49,14 +50,14 @@ export default function Navbar() {
 
         {/* Nav links */}
         <div className={`navbar-links ${menuOpen ? 'open' : ''}`}>
-          <Link to="/"           className={isActive('/')}>Home</Link>
-          <Link to="/predict"    className={isActive('/predict')}>Check Risk</Link>
+          <Link to="/" className={isActive('/')}>Home</Link>
+          <Link to="/predict" className={isActive('/predict')}>Check Risk</Link>
           <Link to="/prevention" className={isActive('/prevention')}>Prevention</Link>
-          <Link to="/diet"       className={isActive('/diet')}>Diet</Link>
-          <Link to="/exercise"   className={isActive('/exercise')}>Exercise</Link>
-          <Link to="/numbers"    className={isActive('/numbers')}>Know Your Numbers</Link>
-          <Link to="/faq"        className={isActive('/faq')}>FAQ</Link>
-          
+          <Link to="/diet" className={isActive('/diet')}>Diet</Link>
+          <Link to="/exercise" className={isActive('/exercise')}>Exercise</Link>
+          <Link to="/numbers" className={isActive('/numbers')}>Know Your Numbers</Link>
+          <Link to="/faq" className={isActive('/faq')}>FAQ</Link>
+
           {user ? (
             <>
               <Link to="/history" className={isActive('/history')}>My History</Link>
@@ -72,10 +73,13 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link to="/login"    className={`btn btn-outline ${isActive('/login')}`}>Log In</Link>
+              <Link to="/login" className={`btn btn-outline ${isActive('/login')}`}>Log In</Link>
               <Link to="/register" className={`btn btn-primary ${isActive('/register')}`}>Sign Up</Link>
             </>
           )}
+        </div>
+        <div className="translator-wrapper">
+          <GoogleTranslate />
         </div>
       </div>
     </nav>
