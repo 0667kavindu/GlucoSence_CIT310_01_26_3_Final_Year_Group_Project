@@ -56,7 +56,11 @@ def register():
 
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
-        password_confirm = data.get('confirm_password', '')
+        # NOTE: frontend (Register.jsx) sends this field as "password_confirm",
+        # not "confirm_password". This was the cause of the 400 error --
+        # password_confirm was always being read as '' here, so it never
+        # matched the real password.
+        password_confirm = data.get('password_confirm', '')
         full_name = data.get('full_name', '').strip()
 
         # Required fields

@@ -1,23 +1,22 @@
 // GlucoSense — Navbar.jsx
 // Shows login/register links when logged out, user name + logout when logged in
 
-
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import './Navbar.css'
-import GoogleTranslate from './GoogleTranslate';
+import GoogleTranslate from './GoogleTranslate'
 
 export default function Navbar() {
-  const [user, setUser] = useState(null)
+  const [user, setUser]         = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const navigate = useNavigate()
-  const location = useLocation()
+  const navigate                = useNavigate()
+  const location                = useLocation()
 
-  // Check if user is logged in on every render
+  // Sync auth state and close mobile menu on route change
   useEffect(() => {
     const stored = localStorage.getItem('glucosense_user')
     setUser(stored ? JSON.parse(stored) : null)
-    setMenuOpen(false) // close mobile menu on route change
+    setMenuOpen(false)
   }, [location.pathname])
 
   function handleLogout() {
@@ -39,7 +38,7 @@ export default function Navbar() {
           <span className="logo-sense">Sense</span>
         </Link>
 
-        {/* Hamburger button (mobile) */}
+        {/* Hamburger button (mobile only) */}
         <button
           className={`hamburger ${menuOpen ? 'open' : ''}`}
           onClick={() => setMenuOpen(m => !m)}
@@ -50,13 +49,13 @@ export default function Navbar() {
 
         {/* Nav links */}
         <div className={`navbar-links ${menuOpen ? 'open' : ''}`}>
-          <Link to="/" className={isActive('/')}>Home</Link>
-          <Link to="/predict" className={isActive('/predict')}>Check Risk</Link>
+          <Link to="/"           className={isActive('/')}>Home</Link>
+          <Link to="/predict"    className={isActive('/predict')}>Check Risk</Link>
           <Link to="/prevention" className={isActive('/prevention')}>Prevention</Link>
-          <Link to="/diet" className={isActive('/diet')}>Diet</Link>
-          <Link to="/exercise" className={isActive('/exercise')}>Exercise</Link>
-          <Link to="/numbers" className={isActive('/numbers')}>Know Your Numbers</Link>
-          <Link to="/faq" className={isActive('/faq')}>FAQ</Link>
+          <Link to="/diet"       className={isActive('/diet')}>Diet</Link>
+          <Link to="/exercise"   className={isActive('/exercise')}>Exercise</Link>
+          <Link to="/numbers"    className={isActive('/numbers')}>Know Your Numbers</Link>
+          <Link to="/faq"        className={isActive('/faq')}>FAQ</Link>
 
           {user ? (
             <>
@@ -73,14 +72,22 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link to="/login" className={`btn btn-outline ${isActive('/login')}`}>Log In</Link>
+              <Link to="/login"    className={`btn btn-outline ${isActive('/login')}`}>Log In</Link>
               <Link to="/register" className={`btn btn-primary ${isActive('/register')}`}>Sign Up</Link>
             </>
           )}
+
+          {/* Google Translate — moved inside mobile menu so it shows in the dropdown too */}
+          <div className="translator-wrapper translator-wrapper-mobile">
+            <GoogleTranslate />
+          </div>
         </div>
-        <div className="translator-wrapper">
+
+        {/* Google Translate — desktop only (hidden on mobile via CSS) */}
+        <div className="translator-wrapper translator-wrapper-desktop">
           <GoogleTranslate />
         </div>
+
       </div>
     </nav>
   )

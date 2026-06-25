@@ -20,9 +20,10 @@
   height:      60px;
   display:     flex;
   align-items: center;
-  gap:         16px;
+  gap:         8px;
 }
 
+/* Logo */
 .navbar-logo {
   font-size:   1.4rem;
   font-weight: 800;
@@ -34,18 +35,20 @@
 .logo-gluco { color: #FFFFFF; }
 .logo-sense { color: #5DF8D8; }
 
+/* Nav links row */
 .navbar-links {
   display:     flex;
   align-items: center;
-  gap:         6px;
-  flex-wrap:   wrap;
+  gap:         2px;
+  flex-shrink: 1;
+  min-width:   0;
 }
 
 .navbar-links a {
   color:       #A8B8D0;
-  font-size:   13px;
+  font-size:   12px;
   font-weight: 500;
-  padding:     6px 10px;
+  padding:     6px 8px;
   border-radius: 6px;
   text-decoration: none;
   transition:  all 0.15s;
@@ -57,7 +60,147 @@
   background:  rgba(78, 155, 255, 0.12);
 }
 
-/* Hamburger — mobile only */
+/* Button overrides inside nav */
+.navbar-links .btn {
+  font-size:  12px;
+  padding:    6px 10px;
+  white-space: nowrap;
+}
+
+/*
+   Google Translate widget — skin it to match the navbar
+    */
+
+.translator-wrapper {
+  flex-shrink:  0;
+  margin-left:  4px;
+  display:      flex;
+  align-items:  center;
+  height:       60px; /* match navbar height so it never wraps to its own row */
+}
+
+/* Show desktop copy on desktop, hide mobile copy */
+.translator-wrapper-desktop { display: flex; }
+.translator-wrapper-mobile  { display: none; }
+
+/* Google injects its own wrapper/iframe/select — neutralize default chrome */
+.translator-wrapper .goog-te-gadget {
+  font-family: inherit !important;
+  font-size:   0 !important;     /* hide the "Powered by" text node Google adds */
+  line-height: normal;
+  display:     flex;
+  align-items: center;
+}
+
+/* The actual visible language <select> */
+.translator-wrapper .goog-te-combo {
+  font-family:  inherit;
+  font-size:    12px;
+  font-weight:  500;
+  color:        #A8B8D0;
+  background:   rgba(78, 155, 255, 0.08);
+  border:       1px solid rgba(78, 155, 255, 0.25);
+  border-radius: 6px;
+  padding:      6px 8px;
+  height:       32px;
+  max-width:    140px;
+  cursor:       pointer;
+  outline:      none;
+  appearance:   auto; /* keep native arrow so it's recognizable as a select */
+  transition:   all 0.15s;
+}
+.translator-wrapper .goog-te-combo:hover,
+.translator-wrapper .goog-te-combo:focus {
+  color:       #FFFFFF;
+  border-color: rgba(78, 155, 255, 0.5);
+  background:  rgba(78, 155, 255, 0.16);
+}
+
+/* Hide Google's top "translated by Google" banner bar that pushes page content down */
+.goog-te-banner-frame.skiptranslate { display: none !important; }
+body { top: 0 !important; }
+
+/* Hide the little Google logo image next to the dropdown, if present */
+.translator-wrapper .goog-te-gadget img,
+.translator-wrapper .goog-logo-link,
+.translator-wrapper .goog-te-gadget span:not(.goog-te-combo) {
+  display: none !important;
+}
+
+/* Large desktop: give links a bit more breathing room */
+@media (min-width: 1200px) {
+  .navbar-links { gap: 4px; }
+  .navbar-links a { font-size: 13px; padding: 6px 10px; }
+  .navbar-links .btn { font-size: 13px; padding: 7px 14px; }
+  .translator-wrapper .goog-te-combo { font-size: 13px; max-width: 150px; }
+}
+
+/* Tablet range: keep single row, tighten sizes */
+@media (max-width: 1100px) {
+  .navbar-inner { padding: 0 14px; gap: 6px; }
+  .navbar-links a { font-size: 11.5px; padding: 5px 6px; }
+  .navbar-links .btn { font-size: 11.5px; padding: 5px 8px; }
+  .translator-wrapper .goog-te-combo {
+    font-size: 11.5px;
+    max-width: 110px;
+    padding:   5px 6px;
+    height:    28px;
+  }
+}
+
+/* Collapse to hamburger */
+@media (max-width: 900px) {
+  .navbar-inner { height: 56px; }
+
+  .hamburger { display: flex; }
+
+  /* Hide desktop translate slot, show the mobile-menu one instead */
+  .translator-wrapper-desktop { display: none; }
+  .translator-wrapper-mobile  {
+    display:     flex;
+    height:      auto;
+    margin:      8px 0 0;
+    align-self:  stretch;
+  }
+  .translator-wrapper-mobile .goog-te-combo {
+    width:      100%;
+    max-width:  none;
+    height:     38px;
+    font-size:  14px;
+    text-align: left;
+  }
+
+  .navbar-links {
+    display:        none;
+    position:       absolute;
+    top:            56px;
+    left:           0;
+    right:          0;
+    background:     rgba(10, 22, 40, 0.98);
+    padding:        16px 20px;
+    flex-direction: column;
+    align-items:    stretch;
+    gap:            4px;
+    border-bottom:  1px solid rgba(78, 155, 255, 0.2);
+    max-height:     calc(100vh - 56px);
+    overflow-y:     auto;
+  }
+  .navbar-links.open { display: flex; }
+
+  .navbar-links a {
+    font-size: 14px;
+    padding:   10px 12px;
+  }
+
+  .navbar-links .btn {
+    font-size:   14px;
+    padding:     10px 12px;
+    text-align:  center;
+    margin-top:  4px;
+  }
+}
+
+/* Hamburger icon itself */
 .hamburger {
   display:    none;
   flex-direction: column;
@@ -76,37 +219,9 @@
   transition: all 0.2s;
 }
 
-/* Tablet: shrink padding/gaps before the hard breakpoint kicks in */
-@media (max-width: 1024px) {
-  .navbar-inner { padding: 0 16px; gap: 12px; }
-  .navbar-links { gap: 2px; }
-  .navbar-links a { font-size: 12.5px; padding: 6px 8px; }
-}
-
-@media (max-width: 900px) {
-  .navbar-inner { height: 56px; }
-
-  .hamburger { display: flex; }
-
-  .navbar-links {
-    display:    none;
-    position:   absolute;
-    top:        56px; left: 0; right: 0;
-    background: rgba(10, 22, 40, 0.98);
-    padding:    16px 20px;
-    flex-direction: column;
-    align-items:    stretch;
-    border-bottom: 1px solid rgba(78, 155, 255, 0.2);
-    max-height: calc(100vh - 56px);
-    overflow-y: auto;
-  }
-  .navbar-links.open { display: flex; }
-  .navbar-links a    { padding: 10px 12px; font-size: 14px; }
-}
-
 /* Small phones */
 @media (max-width: 480px) {
-  .navbar-inner { padding: 0 12px; gap: 8px; }
+  .navbar-inner { padding: 0 12px; gap: 6px; }
   .navbar-logo  { font-size: 1.15rem; }
 }
 
@@ -114,4 +229,94 @@
 @media (max-width: 360px) {
   .navbar-logo { font-size: 1rem; }
 }
+/* 
+   Google Translate widget — skin it to match the navbar
+   */
 
+.translator-wrapper {
+  flex-shrink:  0;
+  display:      flex;
+  align-items:  center;
+  height:       60px; /* match navbar height so it never wraps to its own row */
+  order:        2;    /* sits right after logo, before links — only matters if parent is flex with order applied elsewhere */
+}
+
+/* Google injects its own wrapper/iframe/select — neutralize default chrome */
+.translator-wrapper .goog-te-gadget {
+  font-family: inherit !important;
+  font-size:   0 !important;     /* hides the "Powered by Google" text node */
+  line-height: normal;
+  display:     flex;
+  align-items: center;
+}
+
+/* The actual visible language <select> */
+.translator-wrapper .goog-te-combo {
+  font-family:   inherit;
+  font-size:     12px;
+  font-weight:   500;
+  color:         #A8B8D0;
+  background:    rgba(78, 155, 255, 0.08);
+  border:        1px solid rgba(78, 155, 255, 0.25);
+  border-radius: 6px;
+  padding:       6px 8px;
+  height:        32px;
+  max-width:     140px;
+  cursor:        pointer;
+  outline:       none;
+  appearance:    auto;
+  transition:    all 0.15s;
+}
+.translator-wrapper .goog-te-combo:hover,
+.translator-wrapper .goog-te-combo:focus {
+  color:        #15138f;
+  border-color: rgba(78, 155, 255, 0.5);
+  background:   rgba(78, 155, 255, 0.16);
+}
+
+/* Hide Google's top banner bar that pushes the whole page down */
+.goog-te-banner-frame.skiptranslate { display: none !important; }
+body { top: 0 !important; }
+
+/* Hide the Google logo / extra spans next to the dropdown */
+.translator-wrapper .goog-te-gadget img,
+.translator-wrapper .goog-logo-link,
+.translator-wrapper .goog-te-gadget span:not(.goog-te-combo) {
+  display: none !important;
+}
+
+/* Large desktop */
+@media (min-width: 1200px) {
+  .translator-wrapper .goog-te-combo { font-size: 13px; max-width: 150px; }
+}
+
+/* Tablet range */
+@media (max-width: 1100px) {
+  .translator-wrapper .goog-te-combo {
+    font-size: 11.5px;
+    max-width: 110px;
+    padding:   5px 6px;
+    height:    28px;
+  }
+}
+
+/* Collapse to hamburger */
+@media (max-width: 900px) {
+  .translator-wrapper { height: 56px; }
+  .translator-wrapper .goog-te-combo {
+    font-size: 11px;
+    max-width: 90px;
+    height:    26px;
+    padding:   4px 4px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .translator-wrapper .goog-te-combo { max-width: 70px; font-size: 10px; }
+}
+
+/* Very small / older devices */
+@media (max-width: 360px) {
+  .translator-wrapper .goog-te-combo { max-width: 56px; }
+}
