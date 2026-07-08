@@ -26,15 +26,7 @@ print("=" * 70)
 # CREATE FLASK APP
 app = Flask(__name__)
 
-# BASE_DIR is defined once, here at the top, so it can be reused for
-# BOTH the database file path AND the ML model paths below. This fixes
-# a bug where relative paths like 'sqlite:///glucosense_dev.db' or
-# 'ML_Part/ml/diabetes_model_full.pkl' resolved differently depending
-# on which folder the process happened to be launched from (e.g.
-# running from backend/ vs tests/ vs the project root created/opened
-# a DIFFERENT database file each time, causing "invalid email or
-# password" on login even with correct credentials, since the user
-# was registered in one database file but login checked another).
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Configuration
@@ -44,10 +36,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# SECRET_KEY must come from .env and must not silently fall back to a
-# default — a default that can differ between runs/machines is what
-# caused previously-issued JWT tokens to be rejected as "Invalid
-# token" after any backend restart.
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 if not app.config['SECRET_KEY']:
     raise RuntimeError(
@@ -63,47 +51,55 @@ db.init_app(app)
 CORS(app, supports_credentials=True)
 bcrypt = Bcrypt(app)
 
-
-# LOAD ML MODELS
-print("\n📊 Loading ML Models...")
+print("\n📊 ML Model paths configured (lazy-loaded on first use)...")
 print("-" * 70)
 
-app.model_bundle_full = None
-app.model_bundle_simp = None
-
-# Model paths built from the same BASE_DIR defined above — no longer
-# redefined here, since that would just duplicate the same value.
 FULL_MODEL_PATH = os.path.join(BASE_DIR, 'ML_Part', 'ml', 'diabetes_model_full.pkl')
 SIMP_MODEL_PATH = os.path.join(BASE_DIR, 'ML_Part', 'ml', 'diabetes_model_simplified.pkl')
 
-try:
-    # Load FULL model
-    with open(FULL_MODEL_PATH, 'rb') as f:
-        app.model_bundle_full = pickle.load(f)
-    print("✓ FULL MODEL loaded successfully")
-    print(f"  - Features: {len(app.model_bundle_full['feature_cols'])}")
-    print(f"  - Accuracy: {app.model_bundle_full['accuracy']:.2%}")
-except Exception as e:
-    print(f"✗ ERROR loading FULL model: {str(e)}")
-    print(f"  Looked for: {FULL_MODEL_PATH}")
-    print("  Fix: Run: python ML_Part/ml/train_model.py")
+_model_cache = {}
 
-try:
-    # Load SIMPLIFIED model
-    with open(SIMP_MODEL_PATH, 'rb') as f:
-        app.model_bundle_simp = pickle.load(f)
-    print("✓ SIMPLIFIED MODEL loaded successfully")
-    print(f"  - Features: {len(app.model_bundle_simp['feature_cols'])}")
-    print(f"  - Accuracy: {app.model_bundle_simp['accuracy']:.2%}")
-except Exception as e:
-    print(f"✗ ERROR loading SIMPLIFIED model: {str(e)}")
-    print(f"  Looked for: {SIMP_MODEL_PATH}")
-    print("  Fix: Run: python ML_Part/ml/train_model.py")
+def get_full_model():
+    """Loads and caches the FULL model bundle (6 models inside) on first call."""
+    if 'full' not in _model_cache:
+        try:
+            with open(FULL_MODEL_PATH, 'rb') as f:
+                _model_cache['full'] = pickle.load(f)
+            print("✓ FULL MODEL loaded successfully")
+            print(f"  - Features: {len(_model_cache['full']['feature_cols'])}")
+            print(f"  - Accuracy: {_model_cache['full']['accuracy']:.2%}")
+        except Exception as e:
+            print(f"✗ ERROR loading FULL model: {str(e)}")
+            print(f"  Looked for: {FULL_MODEL_PATH}")
+            print("  Fix: Run: python ML_Part/ml/train_model.py")
+            return None
+    return _model_cache['full']
+
+def get_simp_model():
+    """Loads and caches the SIMPLIFIED model bundle (6 models inside) on first call."""
+    if 'simp' not in _model_cache:
+        try:
+            with open(SIMP_MODEL_PATH, 'rb') as f:
+                _model_cache['simp'] = pickle.load(f)
+            print("✓ SIMPLIFIED MODEL loaded successfully")
+            print(f"  - Features: {len(_model_cache['simp']['feature_cols'])}")
+            print(f"  - Accuracy: {_model_cache['simp']['accuracy']:.2%}")
+        except Exception as e:
+            print(f"✗ ERROR loading SIMPLIFIED model: {str(e)}")
+            print(f"  Looked for: {SIMP_MODEL_PATH}")
+            print("  Fix: Run: python ML_Part/ml/train_model.py")
+            return None
+    return _model_cache['simp']
 
 print("-" * 70)
 
-
-# IMPORT & REGISTER BLUEPRINTS
+# Attach the lazy-loader functions to the app object itself, so that
+# routes/predict.py can call them via current_app.get_full_model() /
+# current_app.get_simp_model() without needing to import app.py directly
+# (importing app.py from inside routes/predict.py would create a
+# circular import, since app.py already imports routes/predict.py above).
+app.get_full_model = get_full_model
+app.get_simp_model = get_simp_model
 print("\n🔗 Registering Routes...")
 print("-" * 70)
 
@@ -154,14 +150,15 @@ print("-" * 70)
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    
     return jsonify({
         'status': 'ok',
         'timestamp': datetime.utcnow().isoformat(),
         'app_name': 'GlucoSense API',
         'version': '3.0',
         'models_loaded': {
-            'full_model': app.model_bundle_full is not None,
-            'simplified_model': app.model_bundle_simp is not None
+            'full_model': 'full' in _model_cache,
+            'simplified_model': 'simp' in _model_cache
         }
     }), 200
 
