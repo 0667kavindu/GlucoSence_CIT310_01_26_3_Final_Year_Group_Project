@@ -6,15 +6,6 @@ import jwt
 
 history_bp = Blueprint('history', __name__, url_prefix='/api')
 
-# FIX (root cause of "Get Risk Score redirects to login"):
-# Removed the local hardcoded SECRET_KEY constant. This file's own
-# token_required decorator now verifies tokens using
-# current_app.config["SECRET_KEY"] -- the exact same source of truth used by
-# utils/auth_utils.py (which protects /api/predict) and auth.py (which
-# issues the token at login). Before this fix, if app.config['SECRET_KEY']
-# didn't exactly equal the string 'your-secret-key-change-this', tokens
-# signed by the old auth.py would fail verification here with a 401.
-
 
 # AUTH DECORATOR (FIXED)
 def token_required(f):

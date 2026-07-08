@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
@@ -405,6 +406,15 @@ export default function NormalPrediction() {
   //  Result page 
   if (result) {
     const color = getRiskColor(result.risk_score)
+
+    // Extract the SHAP factors array. Backend sends shap_factors /
+    // shap_explanation as an OBJECT — { available, top_features: [...] }
+    // — so the actual list lives in .top_features, not on the object
+    // directly (same fix applied in Results.jsx).
+    const shapFactors = result.shap_factors?.top_features
+      || result.shap_explanation?.top_features
+      || []
+
     return (
       <div className="page">
         <div style={{ maxWidth: '700px', margin: '0 auto' }}>
@@ -476,6 +486,52 @@ export default function NormalPrediction() {
               </button>
             </div>
           </div>
+
+          {/* SHAP Explanation — mirrors Results.jsx's chart, shown inline
+              here since NormalPrediction renders its result on this same
+              page rather than navigating to /results. */}
+          {shapFactors.length > 0 && (
+            <div className="card" style={{ marginTop: '24px' }}>
+              <h3 style={{ marginBottom: '16px' }}>
+                🧠 Why did you get this score?
+              </h3>
+              <p style={{ marginBottom: '20px', fontSize: '13px' }}>
+                These are the top factors that influenced your risk score.
+                Red bars increase risk, green bars reduce it.
+              </p>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart
+                  data={shapFactors.map(f => ({
+                    name   : f.feature.length > 18 ? f.feature.slice(0, 18) + '…' : f.feature,
+                    value  : Math.abs(f.shap_value),
+                    raw    : f.shap_value,
+                    impact : f.impact,
+                    yourVal: f.input_value,
+                  }))}
+                  layout="vertical"
+                  margin={{ left: 20 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="name" width={150} tick={{ fill: '#A8B8D0', fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(v, n, p) => [
+                      `Impact: ${p.payload.raw > 0 ? '+' : ''}${p.payload.raw.toFixed(3)}`,
+                      `Your value: ${p.payload.yourVal}`
+                    ]}
+                    contentStyle={{ background: '#1A3050', border: '1px solid #2A4870' }}
+                  />
+                  <Bar dataKey="value" radius={4}>
+                    {shapFactors.map((f, i) => (
+                      <Cell key={i} fill={f.shap_value > 0 ? '#FF5A5A' : '#2EE080'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <p style={{ fontSize: '11px', color: '#607090', marginTop: '8px' }}>
+                🔴 Red = increases your risk &nbsp;&nbsp; 🟢 Green = reduces your risk
+              </p>
+            </div>
+          )}
         </div>
       </div>
     )

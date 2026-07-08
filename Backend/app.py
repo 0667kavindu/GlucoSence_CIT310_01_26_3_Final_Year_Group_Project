@@ -1,6 +1,12 @@
 # GlucoSense — app.py 
 # Complete working backend with all fixes
 
+from dotenv import load_dotenv
+load_dotenv()   # Loads .env into environment BEFORE anything reads SECRET_KEY.
+                 # Without this, os.getenv('SECRET_KEY', ...) always fell back
+                 # to a hardcoded default, causing tokens to break whenever
+                 # SECRET_KEY happened to differ between server runs.
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
@@ -20,13 +26,36 @@ print("=" * 70)
 # CREATE FLASK APP
 app = Flask(__name__)
 
+# BASE_DIR is defined once, here at the top, so it can be reused for
+# BOTH the database file path AND the ML model paths below. This fixes
+# a bug where relative paths like 'sqlite:///glucosense_dev.db' or
+# 'ML_Part/ml/diabetes_model_full.pkl' resolved differently depending
+# on which folder the process happened to be launched from (e.g.
+# running from backend/ vs tests/ vs the project root created/opened
+# a DIFFERENT database file each time, causing "invalid email or
+# password" on login even with correct credentials, since the user
+# was registered in one database file but login checked another).
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
     'DATABASE_URL',
-    'sqlite:///glucosense_dev.db'
+    f'sqlite:///{os.path.join(BASE_DIR, "glucosense_dev.db")}'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# SECRET_KEY must come from .env and must not silently fall back to a
+# default — a default that can differ between runs/machines is what
+# caused previously-issued JWT tokens to be rejected as "Invalid
+# token" after any backend restart.
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+if not app.config['SECRET_KEY']:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is not set. "
+        "Create a .env file in the Backend folder with a line like:\n"
+        "SECRET_KEY=your-random-secret-here"
+    )
+
 app.config['JWT_EXPIRY_HOURS'] = 24
 
 # Initialize extensions
@@ -42,27 +71,34 @@ print("-" * 70)
 app.model_bundle_full = None
 app.model_bundle_simp = None
 
+# Model paths built from the same BASE_DIR defined above — no longer
+# redefined here, since that would just duplicate the same value.
+FULL_MODEL_PATH = os.path.join(BASE_DIR, 'ML_Part', 'ml', 'diabetes_model_full.pkl')
+SIMP_MODEL_PATH = os.path.join(BASE_DIR, 'ML_Part', 'ml', 'diabetes_model_simplified.pkl')
+
 try:
     # Load FULL model
-    with open('ML_Part/ml/diabetes_model_full.pkl', 'rb') as f:
+    with open(FULL_MODEL_PATH, 'rb') as f:
         app.model_bundle_full = pickle.load(f)
     print("✓ FULL MODEL loaded successfully")
     print(f"  - Features: {len(app.model_bundle_full['feature_cols'])}")
     print(f"  - Accuracy: {app.model_bundle_full['accuracy']:.2%}")
 except Exception as e:
     print(f"✗ ERROR loading FULL model: {str(e)}")
-    print("  Fix: Run: python ML_PART/ml/train_model.py")
+    print(f"  Looked for: {FULL_MODEL_PATH}")
+    print("  Fix: Run: python ML_Part/ml/train_model.py")
 
 try:
     # Load SIMPLIFIED model
-    with open('ML_Part/ml/diabetes_model_simplified.pkl', 'rb') as f:
+    with open(SIMP_MODEL_PATH, 'rb') as f:
         app.model_bundle_simp = pickle.load(f)
     print("✓ SIMPLIFIED MODEL loaded successfully")
     print(f"  - Features: {len(app.model_bundle_simp['feature_cols'])}")
     print(f"  - Accuracy: {app.model_bundle_simp['accuracy']:.2%}")
 except Exception as e:
     print(f"✗ ERROR loading SIMPLIFIED model: {str(e)}")
-    print("  Fix: Run: python ML_PART/ml/train_model.py")
+    print(f"  Looked for: {SIMP_MODEL_PATH}")
+    print("  Fix: Run: python ML_Part/ml/train_model.py")
 
 print("-" * 70)
 
@@ -109,6 +145,7 @@ print("-" * 70)
 with app.app_context():
     init_db(app)
     print("✓ Database initialized")
+    print(f"  - Using database: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
 print("-" * 70)
 
@@ -181,7 +218,7 @@ def internal_error(error):
     return jsonify({'error': 'Internal server error.'}), 500
 
 
-# CORS PREFLI
+# CORS PREFLIGHT
 @app.before_request
 def handle_preflight():
     if request.method == "OPTIONS":

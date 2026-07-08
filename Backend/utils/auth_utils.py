@@ -8,7 +8,7 @@ from functools import wraps
 from datetime import datetime, timedelta
 import jwt
 from flask import request, jsonify, current_app
-from database import User
+from database import db, User
 
 
 
@@ -154,7 +154,9 @@ def token_required(require_admin=False):
                 }), 401
 
             # Find the corresponding user in the database.
-            current_user = User.query.get(user_id)
+            # FIX: Query.get() is deprecated in SQLAlchemy 2.0.
+            # Use Session.get() instead, same pattern as history.py.
+            current_user = db.session.get(User, user_id)
 
             if not current_user:
                 return jsonify({

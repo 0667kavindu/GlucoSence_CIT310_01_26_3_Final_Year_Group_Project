@@ -18,7 +18,17 @@ export default function Results() {
 
   if (!result) return <div className="page"><div className="spinner" /></div>
 
-  const { risk_score, stage, recommendations, shap_factors, inputs } = result
+  const { risk_score, stage, recommendations, inputs } = result
+
+  // FIX: the backend sends shap_factors (and shap_explanation) as an
+  // OBJECT — { available, method, top_features: [...], message } —
+  // not directly as an array. The actual list of factors lives in
+  // .top_features. Reading shap_factors directly as if it were the
+  // array (the previous bug) made downloadPDF() throw
+  // "shap_factors.forEach is not a function" and silently fail.
+  const shapFactors = result.shap_factors?.top_features
+    || result.shap_explanation?.top_features
+    || []
 
   //  Gauge colour based on risk
   function gaugeColor(score) {
@@ -88,14 +98,19 @@ export default function Results() {
     doc.text('Top Contributing Factors:', 20, 72)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(11)
-    shap_factors?.forEach((f, i) => {
+
+    // FIX: use shapFactors (the extracted array) and the REAL field
+    // names the backend sends — feature, input_value, impact —
+    // instead of the old direction / user_value names that don't exist.
+    shapFactors.forEach((f, i) => {
+      const directionLabel = f.impact === 'increases_risk' ? 'increases risk' : 'decreases risk'
       doc.text(
-        `${i+1}. ${f.feature} — ${f.direction} (value: ${f.user_value})`,
+        `${i+1}. ${f.feature} — ${directionLabel} (value: ${f.input_value})`,
         22, 82 + i*8
       )
     })
 
-    const recStart = 82 + (shap_factors?.length || 0) * 8 + 10
+    const recStart = 82 + (shapFactors.length || 0) * 8 + 10
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
     doc.text('Recommendations:', 20, recStart)
@@ -144,23 +159,23 @@ export default function Results() {
       </div>
 
       {/*  SHAP Explanation  */}
-      {shap_factors?.length > 0 && (
+      {shapFactors.length > 0 && (
         <div className="card" style={{marginBottom:'24px'}}>
           <h3 style={{marginBottom:'16px'}}>
             🧠 Why did you get this score?
           </h3>
           <p style={{marginBottom:'20px', fontSize:'13px'}}>
-            These are the top 5 factors that influenced your risk score.
+            These are the top factors that influenced your risk score.
             Red bars increase risk, green bars reduce it.
           </p>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart
-              data={shap_factors.map(f => ({
+              data={shapFactors.map(f => ({
                 name  : f.feature.length > 18 ? f.feature.slice(0,18)+'…' : f.feature,
                 value : Math.abs(f.shap_value),
                 raw   : f.shap_value,
-                dir   : f.direction,
-                yourVal: f.user_value,
+                impact: f.impact,
+                yourVal: f.input_value,
               }))}
               layout="vertical"
               margin={{left: 20}}
@@ -175,7 +190,7 @@ export default function Results() {
                 contentStyle={{background:'#1A3050',border:'1px solid #2A4870'}}
               />
               <Bar dataKey="value" radius={4}>
-                {shap_factors.map((f, i) => (
+                {shapFactors.map((f, i) => (
                   <Cell key={i} fill={f.shap_value > 0 ? '#FF5A5A' : '#2EE080'} />
                 ))}
               </Bar>

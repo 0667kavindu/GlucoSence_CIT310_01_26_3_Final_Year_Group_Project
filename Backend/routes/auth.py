@@ -48,10 +48,12 @@ def register():
 
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
-        # NOTE: frontend (Register.jsx) sends this field as "password_confirm",
-        # not "confirm_password". Keep this key matching whatever the
-        # frontend actually sends.
-        password_confirm = data.get('password_confirm', '')
+
+        # FIX: the frontend (Register.jsx) sends this field as
+        # "password_confirm", but tests / other clients may send
+        # "confirm_password". Accept either key so both work.
+        password_confirm = data.get('password_confirm') or data.get('confirm_password', '')
+
         full_name = data.get('full_name', '').strip()
 
         # Required fields
@@ -93,7 +95,6 @@ def register():
         db.session.add(user)
         db.session.commit()
 
-        
         token = jwt.encode(
             {
                 'user_id': user.id,
@@ -142,7 +143,6 @@ def login():
         if not bcrypt.check_password_hash(user.password_hash, password):
             return jsonify({'error': 'Invalid email or password'}), 401
 
-        
         token = jwt.encode(
             {
                 'user_id': user.id,
@@ -210,10 +210,8 @@ def get_current_user():
         return jsonify({'error': 'Token missing'}), 401
 
     try:
-       
         decoded = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
 
-       
         user = db.session.get(User, decoded['user_id'])
 
         if not user:

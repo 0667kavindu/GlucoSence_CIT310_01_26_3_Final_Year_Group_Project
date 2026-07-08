@@ -240,7 +240,7 @@ def build_feature_row(data, feature_cols, label_encoders):
 
 
 OPTIONAL_FIELD_DEFAULTS = {
-    "screen_time_hours_per_day": 4.0,
+   
     "systolic_bp": 120.0,
     "diastolic_bp": 80.0,
 }
@@ -386,6 +386,12 @@ def predict(current_user):
     This endpoint receives user input, validates it, prepares it
     for the model, predicts the risk, generates SHAP explanation,
     and returns the final result.
+
+    NOTE ON VALIDATION ORDER:
+    Input validation (missing/invalid fields -> 400) always runs
+    BEFORE the "is the model loaded" check (-> 503). This way a
+    bad/empty request always reports 400, regardless of whether a
+    trained model is currently available on the server.
     """
 
     try:
@@ -399,21 +405,6 @@ def predict(current_user):
             return jsonify({
                 "error": "prediction_type must be 'WITH_BLOOD' or 'WITHOUT_BLOOD'"
             }), 400
-
-        # Select the correct trained model depending on prediction mode.
-        if prediction_type == "WITH_BLOOD":
-            bundle = current_app.model_bundle_full
-            model_info = "Full Model (with blood tests)"
-        else:
-            bundle = current_app.model_bundle_simp
-            model_info = "Simplified Model (lifestyle only)"
-
-        # If the model was not loaded in app.py, prediction cannot continue.
-        if bundle is None:
-            return jsonify({
-                "error": "Model not loaded. Please retrain models.",
-                "fix": "Run: python ml/train_model.py"
-            }), 503
 
         lifestyle_fields_common = [
             "age", "gender", "bmi", "waist_to_hip_ratio",
@@ -458,6 +449,7 @@ def predict(current_user):
             required_fields += lifestyle_fields_full_only + blood_fields
 
         # Check for missing input fields before prediction.
+        # (This runs BEFORE the model-loaded check further down.)
         missing_fields = [
             field for field in required_fields
             if field not in data or data[field] == "" or data[field] is None
@@ -483,6 +475,24 @@ def predict(current_user):
             valid, error_msg = validate_numeric_range(d, field, min_v, max_v)
             if not valid:
                 return jsonify({"error": error_msg}), 400
+
+        # Select the correct trained model depending on prediction mode.
+        # This check happens AFTER input validation, so a malformed
+        # or empty request never masquerades as a "model unavailable"
+        # (503) response.
+        if prediction_type == "WITH_BLOOD":
+            bundle = current_app.model_bundle_full
+            model_info = "Full Model (with blood tests)"
+        else:
+            bundle = current_app.model_bundle_simp
+            model_info = "Simplified Model (lifestyle only)"
+
+        # If the model was not loaded in app.py, prediction cannot continue.
+        if bundle is None:
+            return jsonify({
+                "error": "Model not loaded. Please retrain models.",
+                "fix": "Run: python ml/train_model.py"
+            }), 503
 
         # Load preprocessing objects and trained model from the model bundle.
         feature_cols = bundle["feature_cols"]
@@ -547,6 +557,8 @@ def predict(current_user):
             "recommendations": recommendations,
             "blood_tests_included": prediction_type == "WITH_BLOOD",
             "shap_explanation": shap_explanation,
+            # Alias kept for any client/test expecting this exact key name.
+            "shap_factors": shap_explanation,
             "timestamp": datetime.utcnow().isoformat()
         }
 
@@ -631,7 +643,7 @@ def get_schema(prediction_type):
     # Extra vitals + blood test fields are added only for full assessment.
     if prediction_type == "WITH_BLOOD":
         schema.update({
-            "screen_time_hours_per_day": {"type": "number", "min": 0, "max": 24},
+            
             "systolic_bp": {"type": "number", "min": 60, "max": 250},
             "diastolic_bp": {"type": "number", "min": 30, "max": 150},
             "glucose_fasting": {"type": "number", "min": 40, "max": 400},
