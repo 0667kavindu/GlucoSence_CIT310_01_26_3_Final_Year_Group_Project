@@ -44,25 +44,25 @@ app.model_bundle_simp = None
 
 try:
     # Load FULL model
-    with open('ml/diabetes_model_full.pkl', 'rb') as f:
+    with open('ML_Part/ml/diabetes_model_full.pkl', 'rb') as f:
         app.model_bundle_full = pickle.load(f)
     print("✓ FULL MODEL loaded successfully")
     print(f"  - Features: {len(app.model_bundle_full['feature_cols'])}")
     print(f"  - Accuracy: {app.model_bundle_full['accuracy']:.2%}")
 except Exception as e:
     print(f"✗ ERROR loading FULL model: {str(e)}")
-    print("  Fix: Run: python ml/train_model.py")
+    print("  Fix: Run: python ML_PART/ml/train_model.py")
 
 try:
     # Load SIMPLIFIED model
-    with open('ml/diabetes_model_simplified.pkl', 'rb') as f:
+    with open('ML_Part/ml/diabetes_model_simplified.pkl', 'rb') as f:
         app.model_bundle_simp = pickle.load(f)
     print("✓ SIMPLIFIED MODEL loaded successfully")
     print(f"  - Features: {len(app.model_bundle_simp['feature_cols'])}")
     print(f"  - Accuracy: {app.model_bundle_simp['accuracy']:.2%}")
 except Exception as e:
     print(f"✗ ERROR loading SIMPLIFIED model: {str(e)}")
-    print("  Fix: Run: python ml/train_model.py")
+    print("  Fix: Run: python ML_PART/ml/train_model.py")
 
 print("-" * 70)
 

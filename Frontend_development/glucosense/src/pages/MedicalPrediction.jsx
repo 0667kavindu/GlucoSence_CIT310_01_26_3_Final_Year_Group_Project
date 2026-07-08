@@ -1,6 +1,5 @@
 // GlucoSense — MedicalPrediction.jsx
-// Full Assessment (WITH blood tests) — Mode B
-
+// Full Assessment (WITH blood tests) 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
@@ -82,25 +81,6 @@ const STEP_REQUIRED = {
       'hdl_cholesterol', 'ldl_cholesterol', 'triglycerides'],
 }
 
-// =========================================================
-// IMPORTANT FIX: NumericField and SelectField are now defined
-// OUTSIDE the MedicalPrediction component (module-level), not
-// inside its function body.
-//
-// Why this matters: previously these were declared with
-// `const NumericField = (...) => {...}` INSIDE MedicalPrediction().
-// Every time MedicalPrediction re-rendered (i.e. on every keystroke,
-// since typing updates `formData` state), JavaScript created a brand
-// new function object for NumericField. React treats a new function
-// reference as a brand new component TYPE, not the same component
-// re-rendering — so it unmounted the old <input> DOM node and mounted
-// a fresh one on every keystroke. That's what caused the input to
-// blink and lose focus after each digit.
-//
-// By moving them out here, the component identity stays stable across
-// re-renders, so React just updates props on the same DOM node and
-// focus is preserved while typing.
-// =========================================================
 
 function NumericField({ name, label, hint, fieldStep = 'any', placeholder = '', formData, touched, onChange, onBlur }) {
   const status = touched[name] ? getFieldStatus(name, formData[name]) : ''
@@ -197,6 +177,9 @@ export default function MedicalPrediction() {
   const [stepError, setStepError] = useState('')
   const [touched, setTouched]   = useState({}) // tracks which fields were blurred
   const [formData, setFormData] = useState(INITIAL)
+
+
+  const [saveStatus, setSaveStatus] = useState('') 
 
   useEffect(() => {
     const t = localStorage.getItem('glucosense_token')
@@ -330,12 +313,60 @@ export default function MedicalPrediction() {
       if (res.data.success) {
         localStorage.setItem('glucosense_result', JSON.stringify({ ...res.data, inputs: payload }))
         setResult(res.data)
+        setSaveStatus('')
         window.scrollTo(0, 0)
       }
     } catch (err) {
+      console.error('predict request failed:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      })
       setStepError(err.response?.data?.error || err.message || 'Prediction failed. Please try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // FIX #2: this page previously had NO way to save results to history --
+  // it only wrote to localStorage, never called /api/history. This mirrors
+  // the working handleSavePrediction from NormalPrediction.jsx.
+  // /api/history's required_fields list only needs the lifestyle/history
+  // fields (not the blood-test-specific ones), all of which already live
+  // in formData.
+  const handleSavePrediction = async () => {
+    if (!result) return
+    setSaveStatus('saving')
+    try {
+      const payload = {
+        risk_score:      result.risk_score,
+        stage:           result.stage,
+        prediction_type: result.prediction_type,
+        model_used:      result.model_used,
+        age:                                 formData.age,
+        gender:                              formData.gender,
+        bmi:                                 formData.bmi,
+        waist_to_hip_ratio:                  formData.waist_to_hip_ratio,
+        physical_activity_minutes_per_week:  formData.physical_activity_minutes_per_week,
+        smoking_status:                      formData.smoking_status,
+        alcohol_consumption_per_week:        formData.alcohol_consumption_per_week,
+        diet_score:                          formData.diet_score,
+        sleep_hours_per_day:                 formData.sleep_hours_per_day,
+        family_history_diabetes:             formData.family_history_diabetes,
+        hypertension_history:                formData.hypertension_history,
+        cardiovascular_history:              formData.cardiovascular_history,
+      }
+      await axios.post(`${API}/api/history`, payload, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      })
+      setSaveStatus('saved')
+    } catch (err) {
+      console.error('save history failed:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      })
+      setSaveStatus('error')
     }
   }
 
@@ -371,13 +402,36 @@ export default function MedicalPrediction() {
               ))}
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '28px' }}>
+            {/* FIX #2: Save to History button + status feedback */}
+            <button
+              className="btn"
+              style={{
+                width: '100%', marginTop: '24px', padding: '12px',
+                background: saveStatus === 'saved' ? '#607090' : '#2EE080',
+                color: '#1A2E4A', border: 'none', borderRadius: '8px',
+                fontWeight: 700, cursor: saveStatus === 'saving' || saveStatus === 'saved' ? 'not-allowed' : 'pointer',
+                opacity: saveStatus === 'saving' ? 0.7 : 1,
+              }}
+              onClick={handleSavePrediction}
+              disabled={saveStatus === 'saving' || saveStatus === 'saved'}
+            >
+              {saveStatus === 'saving' && '⏳ Saving...'}
+              {saveStatus === 'saved'  && '✓ Saved to History'}
+              {(saveStatus === '' || saveStatus === 'error') && '💾 Save to History'}
+            </button>
+            {saveStatus === 'error' && (
+              <div style={{ color: '#FF5A5A', fontSize: '12px', marginTop: '8px' }}>
+                ⚠ Could not save. Check DevTools → Console for details, then try again.
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
               <button className="btn btn-primary" style={{ flex: 1 }}
                 onClick={() => navigate('/results')}>
                 📊 Full Results
               </button>
               <button className="btn btn-outline" style={{ flex: 1 }}
-                onClick={() => { setResult(null); setStep(1); setFormData(INITIAL); setTouched({}) }}>
+                onClick={() => { setResult(null); setStep(1); setFormData(INITIAL); setTouched({}); setSaveStatus('') }}>
                 🔄 New Assessment
               </button>
             </div>
