@@ -2,7 +2,6 @@
 
 # This file handles the diabetes risk prediction process.
 
-
 from flask import Blueprint, request, jsonify, current_app
 import numpy as np
 from datetime import datetime
@@ -234,9 +233,17 @@ def build_feature_row(data, feature_cols, label_encoders):
             continue
 
         # Convert normal numeric fields into float values.
-        row[col] = safe_float(data.get(col, 0), 0.0)
+        default = OPTIONAL_FIELD_DEFAULTS.get(col, 0.0)
+        row[col] = safe_float(data.get(col, default), default)
 
     return row
+
+
+OPTIONAL_FIELD_DEFAULTS = {
+    "screen_time_hours_per_day": 4.0,
+    "systolic_bp": 120.0,
+    "diastolic_bp": 80.0,
+}
 
 
 
@@ -408,8 +415,7 @@ def predict(current_user):
                 "fix": "Run: python ml/train_model.py"
             }), 503
 
-        # Lifestyle fields required for both prediction modes.
-        lifestyle_fields = [
+        lifestyle_fields_common = [
             "age", "gender", "bmi", "waist_to_hip_ratio",
             "heart_rate",
             "physical_activity_minutes_per_week",
@@ -417,7 +423,11 @@ def predict(current_user):
             "alcohol_consumption_per_week",
             "diet_score",
             "sleep_hours_per_day",
-            "screen_time_hours_per_day",
+        ]
+
+        # Only required for the Full Assessment, where the extra vitals
+        # form fields are expected to be collected.
+        lifestyle_fields_full_only = [
             "systolic_bp",
             "diastolic_bp",
         ]
@@ -442,10 +452,10 @@ def predict(current_user):
         ]
 
         # Build required field list based on selected prediction mode.
-        required_fields = lifestyle_fields + history_fields
+        required_fields = lifestyle_fields_common + history_fields
 
         if prediction_type == "WITH_BLOOD":
-            required_fields += blood_fields
+            required_fields += lifestyle_fields_full_only + blood_fields
 
         # Check for missing input fields before prediction.
         missing_fields = [
@@ -613,17 +623,17 @@ def get_schema(prediction_type):
         "alcohol_consumption_per_week": {"type": "number", "min": 0, "max": 100},
         "diet_score": {"type": "number", "min": 0, "max": 100},
         "sleep_hours_per_day": {"type": "number", "min": 0, "max": 12},
-        "screen_time_hours_per_day": {"type": "number", "min": 0, "max": 24},
-        "systolic_bp": {"type": "number", "min": 60, "max": 250},
-        "diastolic_bp": {"type": "number", "min": 30, "max": 150},
         "family_history_diabetes": {"type": "checkbox"},
         "hypertension_history": {"type": "checkbox"},
         "cardiovascular_history": {"type": "checkbox"},
     }
 
-    # Extra blood test fields are added only for full assessment.
+    # Extra vitals + blood test fields are added only for full assessment.
     if prediction_type == "WITH_BLOOD":
         schema.update({
+            "screen_time_hours_per_day": {"type": "number", "min": 0, "max": 24},
+            "systolic_bp": {"type": "number", "min": 60, "max": 250},
+            "diastolic_bp": {"type": "number", "min": 30, "max": 150},
             "glucose_fasting": {"type": "number", "min": 40, "max": 400},
             "glucose_postprandial": {"type": "number", "min": 40, "max": 400},
             "hba1c": {"type": "number", "min": 3, "max": 15},

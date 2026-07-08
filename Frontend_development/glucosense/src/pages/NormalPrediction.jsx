@@ -1,11 +1,5 @@
 // GlucoSense — NormalPrediction.jsx
 // Quick Assessment with 12 fields (NO blood tests)
-// FIXES:
-//   1. heart_rate field now rendered in Step 2 (was in LIMITS but never shown)
-//   2. Removed duplicate `normal` key in heart_rate LIMITS entry
-//   3. getFieldStatus now returns 'warn' when value is outside normal range
-//   4. heart_rate added to Step 2 required validation
-//   5. heart_rate added to Step 2 form data initial state (was missing)
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -13,7 +7,7 @@ import axios from 'axios'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
-// ─── FIELD LIMITS & VALIDATION ────────────────────────────────────────────────
+//  FIELD LIMITS & VALIDATION 
 const LIMITS = {
   age:                                { min: 18,   max: 120,   unit: 'years',       normal: null          },
   bmi:                                { min: 10,   max: 60,    unit: 'kg/m²',       normal: [18.5, 24.9]  },
@@ -22,12 +16,10 @@ const LIMITS = {
   alcohol_consumption_per_week:       { min: 0,    max: 100,   unit: 'units/week',  normal: null          },
   diet_score:                         { min: 1,    max: 10,    unit: '/10',         normal: null          },
   sleep_hours_per_day:                { min: 1,    max: 24,    unit: 'hours/day',   normal: [7, 9]        },
-  // FIX: removed duplicate `normal` key (only one is kept by JS — the last one wins, which was correct
-  //      but confusing). Now written cleanly once.
   heart_rate:                         { min: 30,   max: 220,   unit: 'bpm',         normal: [60, 100]     },
 }
 
-// ─── STATUS STYLES ─────────────────────────────────────────────────────────────
+//  STATUS STYLES 
 const STATUS_STYLE = {
   valid: { borderColor: '#2EE080', background: 'rgba(46,224,128,0.06)' },
   warn:  { borderColor: '#FFD60A', background: 'rgba(255,214,10,0.06)' },
@@ -35,8 +27,7 @@ const STATUS_STYLE = {
   '':    {},
 }
 
-// ─── HELPERS ───────────────────────────────────────────────────────────────────
-// FIX: getFieldStatus now correctly returns 'warn' when value is outside normal range
+//  HELPERS 
 function getFieldStatus(name, value) {
   if (value === '' || value === null) return ''
   const lim = LIMITS[name]
@@ -59,7 +50,26 @@ function getFieldError(name, value) {
   return null
 }
 
-// ─── INITIAL STATE ─────────────────────────────────────────────────────────────
+
+function isTokenExpired(token) {
+  if (!token) return true
+  try {
+    const payloadBase64 = token.split('.')[1]
+    if (!payloadBase64) return false // not a JWT we can parse — let server decide
+    const payloadJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'))
+    const payload = JSON.parse(payloadJson)
+    if (!payload.exp) return false // no exp claim — let server decide
+    const nowSeconds = Date.now() / 1000
+    return payload.exp < nowSeconds
+  } catch (e) {
+    // If we can't decode it, don't block the user — let the server be the
+    // source of truth and surface its error instead.
+    console.warn('Could not decode token to check expiry:', e)
+    return false
+  }
+}
+
+//  INITIAL STATE 
 const INITIAL = {
   age:                                '',
   gender:                             '',
@@ -70,14 +80,13 @@ const INITIAL = {
   alcohol_consumption_per_week:       '',
   diet_score:                         '',
   sleep_hours_per_day:                '',
-  heart_rate:                         '', // FIX: was missing from initial state
+  heart_rate:                         '',
   family_history_diabetes:            0,
   hypertension_history:               0,
   cardiovascular_history:             0,
 }
 
-// ─── STEP REQUIRED FIELDS ──────────────────────────────────────────────────────
-// FIX: heart_rate added to Step 2 required list
+//  STEP REQUIRED FIELDS 
 const STEP_REQUIRED = {
   1: ['age', 'gender', 'bmi', 'waist_to_hip_ratio'],
   2: [
@@ -86,30 +95,37 @@ const STEP_REQUIRED = {
     'alcohol_consumption_per_week',
     'diet_score',
     'sleep_hours_per_day',
-    'heart_rate',   // ← was missing
+    'heart_rate',
   ],
 }
 
-// ─── COMPONENT ─────────────────────────────────────────────────────────────────
+//  COMPONENT 
 export default function NormalPrediction() {
   const navigate = useNavigate()
 
-  const [loading,   setLoading]   = useState(false)
-  const [result,    setResult]    = useState(null)
-  const [error,     setError]     = useState(null)
-  const [token,     setToken]     = useState(null)
-  const [step,      setStep]      = useState(1)
-  const [touched,   setTouched]   = useState({})
-  const [formData,  setFormData]  = useState(INITIAL)
+  const [loading,     setLoading]     = useState(false)
+  const [result,      setResult]      = useState(null)
+  const [error,       setError]       = useState(null)
+  
+  // show a "Log in again" action instead of a generic error banner.
+  const [authError,   setAuthError]   = useState(false)
+  const [token,       setToken]       = useState(null)
+  const [step,        setStep]        = useState(1)
+  const [touched,     setTouched]     = useState({})
+  const [formData,    setFormData]    = useState(INITIAL)
 
-  // ── Auth check ──────────────────────────────────────────────────────────────
+  //  Auth check 
   useEffect(() => {
-    const storedToken = localStorage.getItem('glucosense_token')
-    if (!storedToken) navigate('/login')
-    else setToken(storedToken)
+   
+    const storedToken = localStorage.getItem('glucosense_token')?.trim()
+    if (!storedToken) {
+      navigate('/login')
+    } else {
+      setToken(storedToken)
+    }
   }, [navigate])
 
-  // ── Input handler ───────────────────────────────────────────────────────────
+  //  Input handler 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
 
@@ -137,12 +153,12 @@ export default function NormalPrediction() {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  // ── Blur handler ────────────────────────────────────────────────────────────
+  //  Blur handler 
   const handleBlur = (e) => {
     setTouched(prev => ({ ...prev, [e.target.name]: true }))
   }
 
-  // ── Validation ──────────────────────────────────────────────────────────────
+  //  Validation 
   const validateStep = (s) => {
     const required = STEP_REQUIRED[s] || []
 
@@ -150,6 +166,7 @@ export default function NormalPrediction() {
       const val = formData[field]
       if (val === '' || val === null || val === undefined) {
         setError(`Please fill in: ${field.replace(/_/g, ' ')}`)
+        setAuthError(false)
         setTouched(prev => ({ ...prev, [field]: true }))
         return false
       }
@@ -159,6 +176,7 @@ export default function NormalPrediction() {
         const n = parseFloat(val)
         if (isNaN(n)) {
           setError(`"${field.replace(/_/g, ' ')}" must be a valid number.`)
+          setAuthError(false)
           setTouched(prev => ({ ...prev, [field]: true }))
           return false
         }
@@ -166,6 +184,7 @@ export default function NormalPrediction() {
           setError(
             `"${field.replace(/_/g, ' ')}" must be between ${lim.min} and ${lim.max}${lim.unit ? ' ' + lim.unit : ''}.`
           )
+          setAuthError(false)
           setTouched(prev => ({ ...prev, [field]: true }))
           return false
         }
@@ -173,10 +192,11 @@ export default function NormalPrediction() {
     }
 
     setError(null)
+    setAuthError(false)
     return true
   }
 
-  // ── Navigation ──────────────────────────────────────────────────────────────
+  //  Navigation 
   const handleNextStep = (e) => {
     e.preventDefault()
     if (validateStep(1)) {
@@ -185,12 +205,25 @@ export default function NormalPrediction() {
     }
   }
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
+  //  Submit 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
+    setAuthError(false)
     if (!validateStep(2)) return
-    if (!token) { navigate('/login'); return }
+
+    if (!token) {
+      navigate('/login')
+      return
+    }
+
+
+    // the user gets a clear message instead of a silent redirect.
+    if (isTokenExpired(token)) {
+      setError('Your session has expired. Please log in again to get your risk score.')
+      setAuthError(true)
+      return
+    }
 
     setLoading(true)
     try {
@@ -214,16 +247,41 @@ export default function NormalPrediction() {
         window.scrollTo(0, 0)
       } else {
         setError(response.data.error || 'Prediction failed.')
+        setAuthError(false)
       }
     } catch (err) {
-      if (err.response?.status === 401) navigate('/login')
-      else setError(err.response?.data?.error || err.message || 'An error occurred.')
+      // visible in DevTools → Console, instead of disappearing.
+      console.error('predict request failed:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      })
+
+      if (err.response?.status === 401) {
+      
+        // (if it sent one) and let the user choose to log in again.
+        const serverMsg = err.response?.data?.error || err.response?.data?.message
+        setError(
+          serverMsg
+            ? `Session error: ${serverMsg}`
+            : 'Your session is no longer valid. Please log in again.'
+        )
+        setAuthError(true)
+      } else if (!err.response) {
+       
+        // rejection — surface that distinction.
+        setError('Could not reach the server. Check your connection or that the API is running.')
+        setAuthError(false)
+      } else {
+        setError(err.response?.data?.error || err.message || 'An error occurred.')
+        setAuthError(false)
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  // ── Save prediction ─────────────────────────────────────────────────────────
+  //  Save prediction 
   const handleSavePrediction = async () => {
     try {
       const payload = {
@@ -239,11 +297,16 @@ export default function NormalPrediction() {
       alert('✅ Prediction saved!')
       navigate('/history')
     } catch (err) {
+      console.error('save history failed:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      })
       alert('❌ Error saving: ' + (err.response?.data?.error || err.message))
     }
   }
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
+  //  Helpers 
   const getRiskColor = (score) => {
     if (score < 20) return '#2EE080'
     if (score < 40) return '#FFD60A'
@@ -251,7 +314,7 @@ export default function NormalPrediction() {
     return '#FF5A5A'
   }
 
-  // ── Sub-components ──────────────────────────────────────────────────────────
+  //  Sub-components 
   const NumericField = ({ name, label, hint, fieldStep = 'any', placeholder = '' }) => {
     const status = touched[name] ? getFieldStatus(name, formData[name]) : ''
     const errMsg = touched[name] ? getFieldError(name, formData[name]) : null
@@ -336,10 +399,10 @@ export default function NormalPrediction() {
     </label>
   )
 
-  // ── Loading / not-authed ────────────────────────────────────────────────────
+  //  Loading / not-authed 
   if (!token) return <div className="page"><div className="spinner" /></div>
 
-  // ── Result page ─────────────────────────────────────────────────────────────
+  //  Result page 
   if (result) {
     const color = getRiskColor(result.risk_score)
     return (
@@ -418,7 +481,7 @@ export default function NormalPrediction() {
     )
   }
 
-  // ── Form page ───────────────────────────────────────────────────────────────
+  //  Form page 
   return (
     <div className="page">
       <div style={{ maxWidth: '650px', margin: '0 auto' }}>
@@ -469,15 +532,34 @@ export default function NormalPrediction() {
             padding: '12px 16px', background: 'rgba(255,90,90,0.1)',
             border: '1px solid #FF5A5A', borderRadius: '8px',
             color: '#FF5A5A', marginBottom: '20px', fontSize: '13px',
-            display: 'flex', gap: '8px', alignItems: 'center',
+            display: 'flex', flexDirection: 'column', gap: '8px',
           }}>
-            ⚠ {error}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              ⚠ {error}
+            </div>
+           
+            {authError && (
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('glucosense_token')
+                  navigate('/login')
+                }}
+                style={{
+                  alignSelf: 'flex-start', padding: '6px 14px',
+                  background: '#FF5A5A', color: '#fff', border: 'none',
+                  borderRadius: '6px', cursor: 'pointer', fontWeight: 700, fontSize: '12px',
+                }}
+              >
+                Log in again
+              </button>
+            )}
           </div>
         )}
 
         <div className="card">
 
-          {/* ── STEP 1: Basic Info ────────────────────────────────────────── */}
+          {/*  STEP 1: Basic Info  */}
           {step === 1 && (
             <>
               <h3 style={{ marginBottom: '20px' }}>📋 Basic Information</h3>
@@ -522,7 +604,7 @@ export default function NormalPrediction() {
             </>
           )}
 
-          {/* ── STEP 2: Lifestyle & History ───────────────────────────────── */}
+          {/*  STEP 2: Lifestyle & History  */}
           {step === 2 && (
             <>
               <h3 style={{ marginBottom: '20px' }}>🏃 Lifestyle & Medical History</h3>
@@ -556,7 +638,6 @@ export default function NormalPrediction() {
                   hint="Average daily sleep. Normal range is 7–9 hours."
                   fieldStep="0.5" placeholder="e.g. 7.5"
                 />
-                {/* FIX: heart_rate field was in LIMITS but never rendered — added here */}
                 <NumericField
                   name="heart_rate" label="Resting Heart Rate *"
                   hint="Your resting heart rate in beats per minute. Normal: 60–100 bpm."
@@ -574,7 +655,7 @@ export default function NormalPrediction() {
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button
                   type="button"
-                  onClick={() => { setError(null); setStep(1); window.scrollTo(0, 0) }}
+                  onClick={() => { setError(null); setAuthError(false); setStep(1); window.scrollTo(0, 0) }}
                   style={{
                     flex: 1, padding: '12px', background: 'transparent', color: '#4E9BFF',
                     border: '1px solid #4E9BFF', borderRadius: '8px', cursor: 'pointer', fontWeight: 700,

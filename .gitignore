@@ -19,6 +19,9 @@ dist/
 
 .vscode/
 .idea/
+.env
+Backend/ML_Part/checkpoints/*.pkl
+Backend/instance/*.db
 *.swp
 *.swo
 

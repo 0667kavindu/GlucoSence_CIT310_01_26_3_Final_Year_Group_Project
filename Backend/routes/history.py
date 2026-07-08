@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from functools import wraps
 from database import db, Prediction, User
 import traceback
@@ -6,12 +6,17 @@ import jwt
 
 history_bp = Blueprint('history', __name__, url_prefix='/api')
 
-SECRET_KEY = 'your-secret-key-change-this'
+# FIX (root cause of "Get Risk Score redirects to login"):
+# Removed the local hardcoded SECRET_KEY constant. This file's own
+# token_required decorator now verifies tokens using
+# current_app.config["SECRET_KEY"] -- the exact same source of truth used by
+# utils/auth_utils.py (which protects /api/predict) and auth.py (which
+# issues the token at login). Before this fix, if app.config['SECRET_KEY']
+# didn't exactly equal the string 'your-secret-key-change-this', tokens
+# signed by the old auth.py would fail verification here with a 401.
 
 
-# =========================
 # AUTH DECORATOR (FIXED)
-# =========================
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -28,7 +33,8 @@ def token_required(f):
             return jsonify({'error': 'Token is missing'}), 401
 
         try:
-            decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            # FIX: use current_app.config["SECRET_KEY"], not a local hardcoded key
+            decoded = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
             user_id = decoded['user_id']
         except jwt.ExpiredSignatureError:
             return jsonify({'error': 'Token expired'}), 401
@@ -40,9 +46,7 @@ def token_required(f):
     return decorated
 
 
-# =========================
 # SAVE PREDICTION
-# =========================
 @history_bp.route('/history', methods=['POST'])
 @token_required
 def save_prediction(user_id):
@@ -117,9 +121,7 @@ def save_prediction(user_id):
         return jsonify({'error': str(e)}), 500
 
 
-# =========================
 # GET HISTORY
-# =========================
 @history_bp.route('/history', methods=['GET'])
 @token_required
 def get_history(user_id):
@@ -142,9 +144,7 @@ def get_history(user_id):
         return jsonify({'error': str(e)}), 500
 
 
-# =========================
 # GET SINGLE PREDICTION
-# =========================
 @history_bp.route('/history/<int:prediction_id>', methods=['GET'])
 @token_required
 def get_prediction(user_id, prediction_id):
@@ -163,9 +163,7 @@ def get_prediction(user_id, prediction_id):
         return jsonify({'error': str(e)}), 500
 
 
-# =========================
 # DELETE PREDICTION
-# =========================
 @history_bp.route('/history/<int:prediction_id>', methods=['DELETE'])
 @token_required
 def delete_prediction(user_id, prediction_id):
@@ -185,9 +183,7 @@ def delete_prediction(user_id, prediction_id):
         return jsonify({'error': str(e)}), 500
 
 
-# =========================
 # STATS
-# =========================
 @history_bp.route('/history/stats', methods=['GET'])
 @token_required
 def get_stats(user_id):

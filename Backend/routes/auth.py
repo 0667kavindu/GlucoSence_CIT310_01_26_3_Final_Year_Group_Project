@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_bcrypt import Bcrypt
 import re
 from datetime import datetime, timedelta
@@ -9,12 +9,8 @@ import traceback
 auth_bp = Blueprint('auth', __name__, url_prefix='/api')
 bcrypt = Bcrypt()
 
-SECRET_KEY = 'your-secret-key-change-this'
 
-
-# =========================
 # PASSWORD VALIDATION
-# =========================
 def validate_password(password):
     errors = []
 
@@ -36,17 +32,13 @@ def validate_password(password):
     return len(errors) == 0, errors
 
 
-# =========================
 # EMAIL VALIDATION
-# =========================
 def validate_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 
 
-# =========================
 # REGISTER
-# =========================
 @auth_bp.route('/register', methods=['POST'])
 def register():
     try:
@@ -57,9 +49,8 @@ def register():
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
         # NOTE: frontend (Register.jsx) sends this field as "password_confirm",
-        # not "confirm_password". This was the cause of the 400 error --
-        # password_confirm was always being read as '' here, so it never
-        # matched the real password.
+        # not "confirm_password". Keep this key matching whatever the
+        # frontend actually sends.
         password_confirm = data.get('password_confirm', '')
         full_name = data.get('full_name', '').strip()
 
@@ -102,14 +93,14 @@ def register():
         db.session.add(user)
         db.session.commit()
 
-        # Create JWT token (IMPORTANT for tests)
+        
         token = jwt.encode(
             {
                 'user_id': user.id,
                 'email': user.email,
                 'exp': datetime.utcnow() + timedelta(hours=24)
             },
-            SECRET_KEY,
+            current_app.config['SECRET_KEY'],
             algorithm='HS256'
         )
 
@@ -132,9 +123,7 @@ def register():
         }), 500
 
 
-# =========================
 # LOGIN
-# =========================
 @auth_bp.route('/login', methods=['POST'])
 def login():
     try:
@@ -153,13 +142,14 @@ def login():
         if not bcrypt.check_password_hash(user.password_hash, password):
             return jsonify({'error': 'Invalid email or password'}), 401
 
+        
         token = jwt.encode(
             {
                 'user_id': user.id,
                 'email': user.email,
                 'exp': datetime.utcnow() + timedelta(hours=24)
             },
-            SECRET_KEY,
+            current_app.config['SECRET_KEY'],
             algorithm='HS256'
         )
 
@@ -177,9 +167,7 @@ def login():
         return jsonify({'error': str(e)}), 500
 
 
-# =========================
 # VALIDATE PASSWORD
-# =========================
 @auth_bp.route('/validate-password', methods=['POST'])
 def validate_pwd():
     data = request.get_json()
@@ -207,9 +195,7 @@ def validate_pwd():
     }), 200
 
 
-# =========================
-# GET CURRENT USER (/me)
-# =========================
+# GET CURRENT USER
 @auth_bp.route('/me', methods=['GET'])
 def get_current_user():
     token = None
@@ -224,9 +210,10 @@ def get_current_user():
         return jsonify({'error': 'Token missing'}), 401
 
     try:
-        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+       
+        decoded = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
 
-        # FIX SQLAlchemy 2.0 WARNING HERE
+       
         user = db.session.get(User, decoded['user_id'])
 
         if not user:
@@ -243,9 +230,7 @@ def get_current_user():
         return jsonify({'error': 'Invalid token'}), 401
 
 
-# =========================
 # LOGOUT
-# =========================
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
     return jsonify({
