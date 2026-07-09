@@ -480,11 +480,19 @@ def predict(current_user):
         # This check happens AFTER input validation, so a malformed
         # or empty request never masquerades as a "model unavailable"
         # (503) response.
+        #
+        # CHANGED: models are no longer loaded at app startup into
+        # current_app.model_bundle_full / current_app.model_bundle_simp.
+        # Instead, app.py exposes current_app.get_full_model() and
+        # current_app.get_simp_model(), which load the bundle from disk
+        # on first call and return the cached bundle on every call after
+        # that. This keeps memory low until a prediction of that type is
+        # actually requested.
         if prediction_type == "WITH_BLOOD":
-            bundle = current_app.model_bundle_full
+            bundle = current_app.get_full_model()
             model_info = "Full Model (with blood tests)"
         else:
-            bundle = current_app.model_bundle_simp
+            bundle = current_app.get_simp_model()
             model_info = "Simplified Model (lifestyle only)"
 
         # If the model was not loaded in app.py, prediction cannot continue.
